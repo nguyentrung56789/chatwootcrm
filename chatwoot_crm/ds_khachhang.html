@@ -884,6 +884,9 @@
     let staffRows = [];
     let pendingStaffChanges = {};
     let chatwootContext = null;
+    let chatwootContextRaw = "";
+    let chatwootFallbackConversationId = null;
+    let chatwootFallbackContactId = null;
     let chatwootContextReadyResolvers = [];
     let currentZaloChatRow = null;
 
@@ -949,14 +952,6 @@
       return value;
     }
 
-    function getQueryParam(name) {
-      const value = new URLSearchParams(window.location.search).get(name);
-      if (!value || String(value).includes("{{")) {
-        return null;
-      }
-      return value;
-    }
-
     function tryParseJson(value) {
       if (typeof value !== "string") {
         return value;
@@ -964,7 +959,7 @@
 
       let current = value;
 
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 4; i++) {
         if (typeof current !== "string") {
           return current;
         }
@@ -985,7 +980,70 @@
       return current;
     }
 
+    function getRawText(value) {
+      if (typeof value === "string") {
+        return value;
+      }
+
+      try {
+        return JSON.stringify(value || {});
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function extractFirstMatch(text, regex) {
+      const match = String(text || "").match(regex);
+      return match && match[1] ? String(match[1]) : null;
+    }
+
+    function extractIdsFromRawChatwootMessage(rawData) {
+      const raw = getRawText(rawData);
+
+      if (!raw || (raw.indexOf("appContext") === -1 && raw.indexOf("conversation_id") === -1)) {
+        return null;
+      }
+
+      chatwootContextRaw = raw;
+      window.__CHATWOOT_APP_CONTEXT_RAW__ = raw;
+
+      const conversationId =
+        extractFirstMatch(raw, /["']conversation_id["']\s*:\s*["']?(\d+)["']?/i) ||
+        extractFirstMatch(raw, /conversation_id=(\d+)/i);
+
+      // Trong context Chatwoot của anh, contact nằm ở conversation.sender.id.
+      // Regex này cố tình tìm sender.id, tránh lấy nhầm id message.
+      const senderBlock = raw.match(/["']sender["']\s*:\s*\{[\s\S]{0,2000}?\}/i);
+      const contactId = senderBlock
+        ? extractFirstMatch(senderBlock[0], /["']id["']\s*:\s*["']?(\d+)["']?/i)
+        : null;
+
+      if (conversationId) {
+        chatwootFallbackConversationId = String(conversationId);
+        window.__CHATWOOT_CONVERSATION_ID__ = String(conversationId);
+      }
+
+      if (contactId) {
+        chatwootFallbackContactId = String(contactId);
+        window.__CHATWOOT_CONTACT_ID__ = String(contactId);
+      }
+
+      if (conversationId || contactId) {
+        console.log("✅ BẮT ID TỪ RAW CHATWOOT MESSAGE:", {
+          conversation_id: conversationId || null,
+          contact_id: contactId || null
+        });
+      }
+
+      return {
+        conversation_id: conversationId || null,
+        contact_id: contactId || null
+      };
+    }
+
     function extractChatwootContextFromMessage(rawData) {
+      extractIdsFromRawChatwootMessage(rawData);
+
       const payload = tryParseJson(rawData);
 
       if (!payload || typeof payload !== "object") {
@@ -1011,10 +1069,23 @@
       return null;
     }
 
+    function resolveWaitingChatwootContext() {
+      const resolvers = chatwootContextReadyResolvers;
+      chatwootContextReadyResolvers = [];
+
+      resolvers.forEach(function (resolve) {
+        resolve(chatwootContext);
+      });
+    }
+
     function handleChatwootMessage(event) {
       const context = extractChatwootContextFromMessage(event.data);
 
       if (!context) {
+        // Nếu không parse được context nhưng regex đã lấy được conversation_id, vẫn cho các nút chạy.
+        if (getCurrentConversationId()) {
+          resolveWaitingChatwootContext();
+        }
         return;
       }
 
@@ -1031,12 +1102,7 @@
         context: context
       });
 
-      const resolvers = chatwootContextReadyResolvers;
-      chatwootContextReadyResolvers = [];
-
-      resolvers.forEach(function (resolve) {
-        resolve(chatwootContext);
-      });
+      resolveWaitingChatwootContext();
     }
 
     function requestChatwootContext() {
@@ -1099,6 +1165,19 @@
         return String(ctx.message.conversation_id);
       }
 
+      if (chatwootFallbackConversationId) {
+        return String(chatwootFallbackConversationId);
+      }
+
+      if (window.__CHATWOOT_CONVERSATION_ID__) {
+        return String(window.__CHATWOOT_CONVERSATION_ID__);
+      }
+
+      if (chatwootContextRaw) {
+        const rawId = extractFirstMatch(chatwootContextRaw, /["']conversation_id["']\s*:\s*["']?(\d+)["']?/i);
+        if (rawId) return String(rawId);
+      }
+
       return null;
     }
 
@@ -1116,6 +1195,8 @@
         (c && c.sender && c.sender.id) ||
         (c && c.contact && c.contact.id) ||
         (c && c.meta && c.meta.sender && c.meta.sender.id) ||
+        chatwootFallbackContactId ||
+        window.__CHATWOOT_CONTACT_ID__ ||
         null;
 
       return contactId ? String(contactId) : null;
