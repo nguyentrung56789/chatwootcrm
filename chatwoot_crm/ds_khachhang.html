@@ -949,38 +949,86 @@
       return value;
     }
 
-    function parseMaybeJson(value) {
-      if (typeof value === "string") {
+    function getQueryParam(name) {
+      const value = new URLSearchParams(window.location.search).get(name);
+      if (!value || String(value).includes("{{")) {
+        return null;
+      }
+      return value;
+    }
+
+    function tryParseJson(value) {
+      if (typeof value !== "string") {
+        return value;
+      }
+
+      let current = value;
+
+      for (let i = 0; i < 3; i++) {
+        if (typeof current !== "string") {
+          return current;
+        }
+
+        const trimmed = current.trim();
+
+        if (!trimmed || (!trimmed.startsWith("{") && !trimmed.startsWith("["))) {
+          return current;
+        }
+
         try {
-          return JSON.parse(value);
+          current = JSON.parse(trimmed);
         } catch (error) {
-          return null;
+          return value;
         }
       }
 
-      if (value && typeof value === "object") {
-        return value;
+      return current;
+    }
+
+    function extractChatwootContextFromMessage(rawData) {
+      const payload = tryParseJson(rawData);
+
+      if (!payload || typeof payload !== "object") {
+        return null;
+      }
+
+      if (payload.event === "appContext") {
+        return payload.data || null;
+      }
+
+      if (payload.data && payload.data.event === "appContext") {
+        return payload.data.data || null;
+      }
+
+      if (payload.conversation && typeof payload.conversation === "object") {
+        return payload;
+      }
+
+      if (payload.data && payload.data.conversation && typeof payload.data.conversation === "object") {
+        return payload.data;
       }
 
       return null;
     }
 
     function handleChatwootMessage(event) {
-      const payload = parseMaybeJson(event.data);
+      const context = extractChatwootContextFromMessage(event.data);
 
-      if (!payload || payload.event !== "appContext") {
+      if (!context) {
         return;
       }
 
-      chatwootContext = payload.data || null;
+      chatwootContext = context;
+      window.__CHATWOOT_APP_CONTEXT__ = context;
 
       const conversationId = getCurrentConversationId();
       const contactId = getCurrentContactId();
 
-      console.log("CHATWOOT CONTEXT OK:", {
+      console.log("✅ CHATWOOT APP CONTEXT ĐÃ NHẬN:", {
         conversation_id: conversationId,
         contact_id: contactId,
-        context: chatwootContext
+        conversation_field: context && context.conversation ? context.conversation : null,
+        context: context
       });
 
       const resolvers = chatwootContextReadyResolvers;
@@ -999,7 +1047,7 @@
       }
     }
 
-    function waitForChatwootContext(timeoutMs = 2500) {
+    function waitForChatwootContext(timeoutMs = 4000) {
       if (getCurrentConversationId()) {
         return Promise.resolve(chatwootContext);
       }
@@ -1021,9 +1069,10 @@
 
         chatwootContextReadyResolvers.push(done);
 
-        setTimeout(requestChatwootContext, 350);
-        setTimeout(requestChatwootContext, 900);
-        setTimeout(requestChatwootContext, 1600);
+        setTimeout(requestChatwootContext, 250);
+        setTimeout(requestChatwootContext, 700);
+        setTimeout(requestChatwootContext, 1400);
+        setTimeout(requestChatwootContext, 2400);
       });
     }
 
@@ -1033,14 +1082,21 @@
         return String(queryId);
       }
 
-      const c = chatwootContext && chatwootContext.conversation ? chatwootContext.conversation : null;
+      const ctx = chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null;
+      const c = ctx && ctx.conversation ? ctx.conversation : null;
 
+      // Chatwoot Dashboard App bản anh đang dùng trả ID hội thoại ở conversation.conversation_id.
+      // Không dùng conversation.id làm ưu tiên vì trường đó có thể là ID message.
       if (c && c.conversation_id) {
         return String(c.conversation_id);
       }
 
-      if (chatwootContext && chatwootContext.conversation_id) {
-        return String(chatwootContext.conversation_id);
+      if (ctx && ctx.conversation_id) {
+        return String(ctx.conversation_id);
+      }
+
+      if (ctx && ctx.message && ctx.message.conversation_id) {
+        return String(ctx.message.conversation_id);
       }
 
       return null;
@@ -1052,12 +1108,17 @@
         return String(queryId);
       }
 
-      return (
-        (chatwootContext && chatwootContext.contact && chatwootContext.contact.id) ||
-        (chatwootContext && chatwootContext.conversation && chatwootContext.conversation.sender && chatwootContext.conversation.sender.id) ||
-        (chatwootContext && chatwootContext.conversation && chatwootContext.conversation.meta && chatwootContext.conversation.meta.sender && chatwootContext.conversation.meta.sender.id) ||
-        null
-      );
+      const ctx = chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null;
+      const c = ctx && ctx.conversation ? ctx.conversation : null;
+
+      const contactId =
+        (ctx && ctx.contact && ctx.contact.id) ||
+        (c && c.sender && c.sender.id) ||
+        (c && c.contact && c.contact.id) ||
+        (c && c.meta && c.meta.sender && c.meta.sender.id) ||
+        null;
+
+      return contactId ? String(contactId) : null;
     }
 
     function normalizeNullableMaNv(value) {
