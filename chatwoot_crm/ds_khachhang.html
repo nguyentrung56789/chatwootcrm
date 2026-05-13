@@ -1223,8 +1223,6 @@
     }
 
     function buildCustomerPayload(action, maKh, maNv, source, extra) {
-      requestChatwootContext();
-
       const conversationId = getCurrentConversationId();
       const contactId = getCurrentContactId();
       const accountId = getCurrentAccountId();
@@ -1244,13 +1242,53 @@
       };
     }
 
+    function wait(ms) {
+      return new Promise(function (resolve) {
+        setTimeout(resolve, ms);
+      });
+    }
+
+    async function waitForChatwootContext(timeoutMs) {
+      const start = Date.now();
+
+      while (Date.now() - start < timeoutMs) {
+        const conversationId = getCurrentConversationId();
+
+        if (conversationId) {
+          return true;
+        }
+
+        requestChatwootContext();
+        await wait(250);
+      }
+
+      return !!getCurrentConversationId();
+    }
+
     async function sendCustomerWebhook(action, maKh, maNv, source, extra) {
+      requestChatwootContext();
+
+      if (action === "gan_makh" || action === "zalo_chat") {
+        await waitForChatwootContext(2500);
+      } else if (!getCurrentConversationId()) {
+        // Với cập nhật nhân viên, không chặn thao tác nếu chưa kịp lấy context,
+        // nhưng vẫn thử xin context thêm một nhịp để payload có ID nếu Chatwoot trả về kịp.
+        await waitForChatwootContext(800);
+      }
+
       const payload = buildCustomerPayload(action, maKh, maNv, source, extra);
 
       if ((action === "gan_makh" || action === "zalo_chat") && !payload.conversation_id) {
-        console.error("Thiếu conversation_id khi gửi webhook:", payload);
-        throw new Error("Chưa lấy được ID hội thoại từ Chatwoot appContext. Hãy bấm lại tab khách hàng rồi thử lại.");
+        console.error("Thiếu conversation_id khi gửi webhook:", {
+          payload: payload,
+          chatwootContext: chatwootContext,
+          iframe_url: window.location.href,
+          referrer: document.referrer
+        });
+        throw new Error("Chưa lấy được ID hội thoại từ Chatwoot appContext. Bấm lại tab khách hàng rồi đợi 1-2 giây trước khi gán.");
       }
+
+      console.log("Payload gửi webhook:", payload);
 
       const resp = await fetch(CUSTOMER_WEBHOOK_URL, {
         method: "POST",
