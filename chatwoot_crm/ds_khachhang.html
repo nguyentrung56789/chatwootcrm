@@ -175,7 +175,7 @@
 
     .customer-table {
       width: max-content;
-      min-width: 720px;
+      min-width: 860px;
       border-collapse: collapse;
       font-size: 13px;
       table-layout: fixed;
@@ -234,14 +234,6 @@
 
     .customer-table button:hover {
       background: #1d4ed8;
-    }
-
-    .customer-table button.assign-btn {
-      background: #16a34a;
-    }
-
-    .customer-table button.assign-btn:hover {
-      background: #15803d;
     }
 
     .customer-table tbody {
@@ -473,6 +465,93 @@
       background: #1d4ed8;
     }
 
+
+
+    .action-cell {
+      overflow: visible !important;
+      white-space: nowrap;
+      position: relative;
+    }
+
+    .row-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .row-actions button {
+      padding: 5px 8px;
+      font-size: 12px;
+    }
+
+    .row-actions .zalo-chat-btn {
+      background: #16a34a;
+    }
+
+    .row-actions .zalo-chat-btn:hover {
+      background: #15803d;
+    }
+
+    .zalo-chat-box {
+      position: absolute;
+      top: 34px;
+      right: 8px;
+      z-index: 3000;
+      width: 285px;
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+      padding: 8px;
+      white-space: normal;
+    }
+
+    .zalo-chat-title {
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .zalo-chat-input {
+      width: 100%;
+      min-height: 74px;
+      resize: vertical;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 7px;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .zalo-chat-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+
+    .zalo-chat-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 7px;
+    }
+
+    .zalo-chat-actions button {
+      padding: 6px 9px;
+      border-radius: 7px;
+      font-size: 12px;
+    }
+
+    .zalo-chat-actions .cancel-zalo-btn {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .zalo-chat-actions .cancel-zalo-btn:hover {
+      background: #d1d5db;
+    }
+
     .notice-box {
       position: fixed;
       right: 18px;
@@ -689,7 +768,7 @@
             <col data-col="sdt" style="width: 150px;">
             <col data-col="cong_no" style="width: 130px;">
             <col data-col="ma_nv" style="width: 160px;">
-            <col data-col="action" style="width: 90px;">
+            <col data-col="action" style="width: 210px;">
           </colgroup>
 
           <thead>
@@ -782,7 +861,7 @@
     const LOGIN_STORAGE_KEY = "chatwoot_crm_user";
     const TABLE_NHAN_VIEN = "kv_nhan_vien";
     const TABLE_KHACH_HANG = "kv_khachhang";
-    const UPDATE_STAFF_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
+    const CUSTOMER_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
 
     let currentUser = getLoginUser();
     let sortField = "";
@@ -796,6 +875,8 @@
     let isLoadingCustomers = false;
     let staffRows = [];
     let pendingStaffChanges = {};
+    let chatwootContext = null;
+    let lastChatwootContextAt = null;
 
     const loginPopup = document.getElementById("loginPopup");
     const popupMaNvInput = document.getElementById("popupMaNvInput");
@@ -833,6 +914,11 @@
     }
 
     initSupabase().then(function () {
+      requestChatwootContext();
+      setTimeout(requestChatwootContext, 400);
+      setTimeout(requestChatwootContext, 1200);
+      setTimeout(requestChatwootContext, 2500);
+
       initPage();
       enableColumnResize();
     });
@@ -910,12 +996,16 @@
         return;
       }
 
-      staffRows = (data || []).map(function (item) {
-        return {
-          ma_nv: item.ma_nv || "",
-          ten_nv: item.ten_nv || item.ma_nv || ""
-        };
-      });
+      staffRows = (data || [])
+        .map(function (item) {
+          return {
+            ma_nv: String(item.ma_nv || "").trim(),
+            ten_nv: String(item.ten_nv || item.ma_nv || "").trim()
+          };
+        })
+        .filter(function (staff) {
+          return staff.ma_nv !== "";
+        });
 
       renderStaffDropdown();
 
@@ -975,13 +1065,16 @@
     }
 
     function renderStaffSelect(maKh, currentMaNv) {
-      const oldMaNv = String(currentMaNv || "");
-      const pending = pendingStaffChanges[maKh];
-      const selectedValue = pending ? pending.new_ma_nv : oldMaNv;
+      const oldMaNv = String(currentMaNv || "").trim();
+      const selectedValue = oldMaNv;
 
-      let options = `<option value="">-- Chưa gán --</option>`;
+      let options = `<option value="" ${selectedValue === "" ? "selected" : ""}>-- Chưa gán --</option>`;
 
       staffRows.forEach(function (staff) {
+        if (!staff.ma_nv) {
+          return;
+        }
+
         const selected =
           String(staff.ma_nv || "").toLowerCase() === String(selectedValue || "").toLowerCase()
             ? "selected"
@@ -989,16 +1082,14 @@
 
         options += `
           <option value="${escapeHtml(staff.ma_nv)}" ${selected}>
-            ${escapeHtml(staff.ten_nv)}
+            ${escapeHtml(staff.ten_nv || staff.ma_nv)}
           </option>
         `;
       });
 
-      const changedClass = pending ? "changed" : "";
-
       return `
         <select
-          class="staff-cell-select ${changedClass}"
+          class="staff-cell-select"
           data-ma-kh="${escapeHtml(maKh || "")}"
           data-old-ma-nv="${escapeHtml(oldMaNv)}"
           onchange="onStaffCellChanged(this)"
@@ -1008,13 +1099,202 @@
       `;
     }
 
+    function normalizeNullableMaNv(maNv) {
+      const value = String(maNv || "").trim();
+      return value === "" ? null : value;
+    }
+
+    function parseMaybeJson(value) {
+      if (typeof value === "string") {
+        try {
+          return JSON.parse(value);
+        } catch (error) {
+          return null;
+        }
+      }
+
+      if (value && typeof value === "object") {
+        return value;
+      }
+
+      return null;
+    }
+
+    function handleChatwootMessage(event) {
+      const payload = parseMaybeJson(event.data);
+
+      if (!payload || payload.event !== "appContext") {
+        return;
+      }
+
+      chatwootContext = payload.data || null;
+      lastChatwootContextAt = new Date().toISOString();
+
+      console.log("CHATWOOT CONTEXT OK:", chatwootContext);
+      console.log("conversation_id =", getCurrentConversationId());
+      console.log("contact_id =", getCurrentContactId());
+    }
+
+    function requestChatwootContext() {
+      try {
+        window.parent.postMessage("chatwoot-dashboard-app:fetch-info", "*");
+      } catch (error) {
+        console.warn("Không request được Chatwoot context:", error);
+      }
+    }
+
+    window.addEventListener("message", handleChatwootMessage);
+
+    function getQueryParam(name) {
+      const value = new URLSearchParams(window.location.search).get(name);
+
+      if (!value) {
+        return null;
+      }
+
+      const cleaned = String(value).trim();
+
+      if (
+        cleaned === "" ||
+        cleaned === "null" ||
+        cleaned === "undefined" ||
+        cleaned.includes("{{") ||
+        cleaned.includes("}}")
+      ) {
+        return null;
+      }
+
+      return cleaned;
+    }
+
+    function getCurrentConversationId() {
+      const queryId = getQueryParam("conversation_id");
+      if (queryId) {
+        return String(queryId);
+      }
+
+      const conversation = chatwootContext && chatwootContext.conversation
+        ? chatwootContext.conversation
+        : null;
+
+      if (conversation && conversation.conversation_id) {
+        return String(conversation.conversation_id);
+      }
+
+      if (chatwootContext && chatwootContext.conversation_id) {
+        return String(chatwootContext.conversation_id);
+      }
+
+      // Không fallback sang conversation.id ở đây vì trong appContext của Chatwoot,
+      // conversation.id có thể là ID message, còn ID hội thoại thật là conversation.conversation_id.
+      return null;
+    }
+
+    function getCurrentContactId() {
+      const queryId = getQueryParam("contact_id");
+      if (queryId) {
+        return String(queryId);
+      }
+
+      return (
+        (chatwootContext && chatwootContext.contact && chatwootContext.contact.id)
+          ? String(chatwootContext.contact.id)
+          :
+        (chatwootContext && chatwootContext.conversation && chatwootContext.conversation.sender && chatwootContext.conversation.sender.id)
+          ? String(chatwootContext.conversation.sender.id)
+          :
+        (chatwootContext && chatwootContext.conversation && chatwootContext.conversation.meta && chatwootContext.conversation.meta.sender && chatwootContext.conversation.meta.sender.id)
+          ? String(chatwootContext.conversation.meta.sender.id)
+          : null
+      );
+    }
+
+    function getCurrentAccountId() {
+      const queryId = getQueryParam("account_id");
+      if (queryId) {
+        return String(queryId);
+      }
+
+      return (
+        (chatwootContext && chatwootContext.conversation && chatwootContext.conversation.account_id)
+          ? String(chatwootContext.conversation.account_id)
+          : null
+      );
+    }
+
+    function buildCustomerPayload(action, maKh, maNv, source, extra) {
+      requestChatwootContext();
+
+      const conversationId = getCurrentConversationId();
+      const contactId = getCurrentContactId();
+      const accountId = getCurrentAccountId();
+
+      return {
+        action: action,
+        ma_kh: maKh,
+        ma_nv: normalizeNullableMaNv(maNv),
+        conversation_id: conversationId,
+        chatwoot_conversation_id: conversationId,
+        chatwoot_contact_id: contactId,
+        chatwoot_account_id: accountId,
+        source: source,
+        iframe_url: window.location.href,
+        chatwoot_context_received_at: lastChatwootContextAt,
+        ...(extra || {})
+      };
+    }
+
+    async function sendCustomerWebhook(action, maKh, maNv, source, extra) {
+      const payload = buildCustomerPayload(action, maKh, maNv, source, extra);
+
+      if ((action === "gan_makh" || action === "zalo_chat") && !payload.conversation_id) {
+        console.error("Thiếu conversation_id khi gửi webhook:", payload);
+        throw new Error("Chưa lấy được ID hội thoại từ Chatwoot appContext. Hãy bấm lại tab khách hàng rồi thử lại.");
+      }
+
+      const resp = await fetch(CUSTOMER_WEBHOOK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error("Webhook lỗi: " + text);
+      }
+
+      return payload;
+    }
+
+    function showNotice(message, type) {
+      noticeBox.classList.remove("hidden");
+      noticeBox.innerHTML = escapeHtml(message || "");
+
+      if (type === "error") {
+        noticeBox.style.borderColor = "#fecaca";
+        noticeBox.style.background = "#fef2f2";
+        noticeBox.style.color = "#991b1b";
+      } else {
+        noticeBox.style.borderColor = "#bbf7d0";
+        noticeBox.style.background = "#f0fdf4";
+        noticeBox.style.color = "#166534";
+      }
+
+      setTimeout(function () {
+        noticeBox.classList.add("hidden");
+        noticeBox.innerHTML = "";
+        noticeBox.removeAttribute("style");
+      }, 2200);
+    }
+
     async function onStaffCellChanged(selectEl) {
       const maKh = selectEl.dataset.maKh || "";
       const oldMaNv = selectEl.dataset.oldMaNv || "";
       const newMaNv = selectEl.value || "";
 
       if (!maKh) {
-        showNotice("Dòng này thiếu mã khách hàng.", true);
         return;
       }
 
@@ -1024,7 +1304,7 @@
 
       if (!supabaseClient) {
         selectEl.value = oldMaNv;
-        showNotice("Supabase chưa sẵn sàng.", true);
+        showNotice("Supabase chưa sẵn sàng.", "error");
         return;
       }
 
@@ -1035,7 +1315,7 @@
         const { error } = await supabaseClient
           .from(TABLE_KHACH_HANG)
           .update({
-            ma_nv: newMaNv || null
+            ma_nv: normalizeNullableMaNv(newMaNv)
           })
           .eq("ma_kh", maKh);
 
@@ -1043,25 +1323,25 @@
           throw error;
         }
 
-        await sendCustomerWebhook("capnhat_nv", maKh, newMaNv);
-
-        selectEl.dataset.oldMaNv = newMaNv;
-        selectEl.classList.remove("changed");
-
         const found = customers.find(function (item) {
           return String(item.ma_kh || "") === String(maKh || "");
         });
 
         if (found) {
-          found.ma_nv = newMaNv;
+          found.ma_nv = normalizeNullableMaNv(newMaNv) || "";
         }
 
-        showNotice(`Đã cập nhật nhân viên cho ${maKh}`);
+        selectEl.dataset.oldMaNv = newMaNv;
+        selectEl.classList.remove("changed");
+
+        await sendCustomerWebhook("capnhat_nv", maKh, newMaNv, "staff_dropdown");
+
+        showNotice("Đã cập nhật nhân viên cho " + maKh + ".");
       } catch (error) {
         console.error("Lỗi cập nhật nhân viên:", error);
         selectEl.value = oldMaNv;
         selectEl.classList.remove("changed");
-        showNotice("Lỗi cập nhật nhân viên: " + (error.message || JSON.stringify(error)), true);
+        showNotice("Lỗi cập nhật nhân viên: " + (error.message || JSON.stringify(error)), "error");
       } finally {
         selectEl.disabled = false;
       }
@@ -1683,10 +1963,30 @@
             <td title="${escapeHtml(item.ma_nv || "")}">
               ${renderStaffSelect(item.ma_kh || "", item.ma_nv || "")}
             </td>
-            <td>
-              <button class="assign-btn" onclick="assignCustomerCode('${escapeJs(item.ma_kh || "")}', '${escapeJs(item.ma_nv || "")}')">
-                Gán KH
-              </button>
+            <td class="action-cell">
+              <div class="row-actions">
+                <button type="button" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', '${escapeJs(item.ma_nv || "")}', this)">
+                  Gán KH
+                </button>
+                <button type="button" class="zalo-chat-btn" onclick="openZaloChatBox('${escapeJs(item.ma_kh || "")}', '${escapeJs(item.ma_nv || "")}', this)">
+                  Zalo chat
+                </button>
+              </div>
+
+              <div class="zalo-chat-box hidden">
+                <div class="zalo-chat-title">Zalo chat: ${escapeHtml(item.ma_kh || "")}</div>
+                <textarea
+                  class="zalo-chat-input"
+                  data-ma-kh="${escapeHtml(item.ma_kh || "")}"
+                  data-ma-nv="${escapeHtml(item.ma_nv || "")}"
+                  placeholder="Nhập nội dung. Enter để gửi, Shift + Enter để xuống dòng..."
+                  onkeydown="handleZaloChatKeydown(event, this)"
+                ></textarea>
+                <div class="zalo-chat-actions">
+                  <button type="button" class="cancel-zalo-btn" onclick="closeZaloChatBox(this)">Đóng</button>
+                  <button type="button" onclick="sendZaloChat(this)">Gửi</button>
+                </div>
+              </div>
             </td>
           </tr>
         `;
@@ -1715,60 +2015,123 @@
       return number.toLocaleString("vi-VN");
     }
 
-    async function sendCustomerWebhook(action, maKh, maNv) {
-      if (!UPDATE_STAFF_WEBHOOK_URL) {
-        return null;
-      }
-
-      const payload = {
-        action: action,
-        ma_kh: maKh,
-        ma_nv: maNv || null
-      };
-
-      const resp = await fetch(UPDATE_STAFF_WEBHOOK_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error("Webhook lỗi: " + text);
-      }
-
-      return resp;
-    }
-
-    async function assignCustomerCode(maKh, maNv) {
+    async function assignCustomerToChatwoot(maKh, maNv, buttonEl) {
       if (!maKh) {
-        showNotice("Dòng này thiếu mã khách hàng.", true);
+        showNotice("Thiếu mã khách hàng.", "error");
         return;
       }
 
+      const oldText = buttonEl ? buttonEl.textContent : "";
+
       try {
-        await sendCustomerWebhook("gan_makh", maKh, maNv);
-        showNotice(`Đã gửi webhook gán mã KH: ${maKh}`);
+        if (buttonEl) {
+          buttonEl.disabled = true;
+          buttonEl.textContent = "Đang gán...";
+        }
+
+        const payload = await sendCustomerWebhook("gan_makh", maKh, maNv, "assign_customer_button");
+        console.log("Payload gan_makh:", payload);
+        showNotice("Đã gửi yêu cầu gán KH " + maKh + " cho hội thoại " + payload.conversation_id + ".");
       } catch (error) {
-        console.error("Lỗi gửi webhook gán mã KH:", error);
-        showNotice("Lỗi gửi webhook gán mã KH: " + (error.message || JSON.stringify(error)), true);
+        console.error("Lỗi gán KH:", error);
+        showNotice(error.message || "Lỗi gán KH.", "error");
+      } finally {
+        if (buttonEl) {
+          buttonEl.disabled = false;
+          buttonEl.textContent = oldText || "Gán KH";
+        }
       }
     }
 
-    function showNotice(message, isError) {
-      noticeBox.classList.remove("hidden");
-      noticeBox.style.borderColor = isError ? "#fca5a5" : "#bbf7d0";
-      noticeBox.style.background = isError ? "#fef2f2" : "#f0fdf4";
-      noticeBox.style.color = isError ? "#991b1b" : "#166534";
-      noticeBox.innerHTML = escapeHtml(message || "");
+    function closeAllZaloChatBoxes(exceptBox) {
+      document.querySelectorAll(".zalo-chat-box").forEach(function (box) {
+        if (box !== exceptBox) {
+          box.classList.add("hidden");
+        }
+      });
+    }
 
-      setTimeout(function () {
-        noticeBox.classList.add("hidden");
-        noticeBox.innerHTML = "";
-        noticeBox.removeAttribute("style");
-      }, 1800);
+    function openZaloChatBox(maKh, maNv, buttonEl) {
+      const cell = buttonEl.closest("td");
+      const box = cell ? cell.querySelector(".zalo-chat-box") : null;
+
+      if (!box) {
+        return;
+      }
+
+      const textarea = box.querySelector(".zalo-chat-input");
+
+      closeAllZaloChatBoxes(box);
+      box.classList.toggle("hidden");
+
+      if (textarea) {
+        textarea.dataset.maKh = maKh || "";
+        textarea.dataset.maNv = maNv || "";
+
+        setTimeout(function () {
+          textarea.focus();
+        }, 50);
+      }
+    }
+
+    function closeZaloChatBox(buttonEl) {
+      const box = buttonEl.closest(".zalo-chat-box");
+      if (box) {
+        box.classList.add("hidden");
+      }
+    }
+
+    function handleZaloChatKeydown(event, textareaEl) {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        const box = textareaEl.closest(".zalo-chat-box");
+        const sendButton = box ? box.querySelector(".zalo-chat-actions button:last-child") : null;
+
+        if (sendButton) {
+          sendZaloChat(sendButton);
+        }
+      }
+    }
+
+    async function sendZaloChat(buttonEl) {
+      const box = buttonEl.closest(".zalo-chat-box");
+      const textarea = box ? box.querySelector(".zalo-chat-input") : null;
+
+      if (!textarea) {
+        return;
+      }
+
+      const maKh = textarea.dataset.maKh || "";
+      const maNv = textarea.dataset.maNv || "";
+      const message = textarea.value.trim();
+
+      if (!message) {
+        showNotice("Chưa nhập nội dung chat.", "error");
+        textarea.focus();
+        return;
+      }
+
+      const oldText = buttonEl.textContent;
+
+      try {
+        buttonEl.disabled = true;
+        buttonEl.textContent = "Đang gửi...";
+
+        const payload = await sendCustomerWebhook("zalo_chat", maKh, maNv, "zalo_chat_button", {
+          message: message
+        });
+
+        console.log("Payload zalo_chat:", payload);
+        textarea.value = "";
+        box.classList.add("hidden");
+        showNotice("Đã gửi Zalo chat cho hội thoại " + payload.conversation_id + ".");
+      } catch (error) {
+        console.error("Lỗi gửi Zalo chat:", error);
+        showNotice(error.message || "Lỗi gửi Zalo chat.", "error");
+      } finally {
+        buttonEl.disabled = false;
+        buttonEl.textContent = oldText || "Gửi";
+      }
     }
 
     function escapeHtml(value) {
@@ -1796,7 +2159,7 @@
       const storageKey = "chatwoot_crm_customer_table_widths";
       const colList = Array.from(table.querySelectorAll("col"));
       const thList = Array.from(table.querySelectorAll("th.resizable"));
-      const defaultWidths = [130, 240, 150, 130, 160, 90];
+      const defaultWidths = [130, 240, 150, 130, 160, 210];
 
       function getColWidth(index) {
         const col = colList[index];
