@@ -489,6 +489,18 @@
       background: #15803d;
     }
 
+    .customer-table button:disabled,
+    .customer-table button.zalo-chat-btn:disabled,
+    .customer-table button.assign-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      filter: grayscale(0.15);
+    }
+
+    .customer-table button.zalo-chat-btn:disabled:hover {
+      background: #16a34a;
+    }
+
     .zalo-chat-popover {
       position: fixed;
       z-index: 6000;
@@ -1394,6 +1406,20 @@
       };
     }
 
+    function getWebhookDisplayMessage(result, fallbackMessage) {
+      if (result && result.message) {
+        return result.message;
+      }
+
+      const raw = result && result.raw ? String(result.raw).trim() : "";
+
+      if (!raw || raw === "Workflow was started") {
+        return fallbackMessage;
+      }
+
+      return raw;
+    }
+
     async function assignCustomerToChatwoot(maKh, buttonEl) {
       const maNv = getMaNvForCustomer(maKh);
 
@@ -1432,10 +1458,11 @@
         }
 
         if (buttonEl) {
-          buttonEl.classList.add("hidden");
+          buttonEl.disabled = false;
+          buttonEl.textContent = "Gán KH";
         }
 
-        showNotice((result && result.message) || "Đã gán KH: " + maKh);
+        showNotice(getWebhookDisplayMessage(result, "Đã gửi yêu cầu gán KH: " + maKh));
       } catch (error) {
         console.error("Lỗi gán KH:", error);
 
@@ -1492,11 +1519,12 @@
         );
 
         if (pendingConfirmAssign.buttonEl) {
-          pendingConfirmAssign.buttonEl.classList.add("hidden");
+          pendingConfirmAssign.buttonEl.disabled = false;
+          pendingConfirmAssign.buttonEl.textContent = "Gán KH";
         }
 
         const result = response && response.result ? response.result : {};
-        showNotice(result.message || "Đã đổi mã KH sang " + pendingConfirmAssign.new_ma_kh);
+        showNotice(getWebhookDisplayMessage(result, "Đã gửi yêu cầu đổi mã KH sang " + pendingConfirmAssign.new_ma_kh));
         closeConfirmAssignModal();
       } catch (error) {
         console.error("Lỗi đổi mã KH:", error);
@@ -1562,7 +1590,7 @@
       zaloChatSendBtn.textContent = "Đang gửi...";
 
       try {
-        await sendCustomerWebhook(
+        const response = await sendCustomerWebhook(
           "zalo_chat",
           currentZaloChatRow.ma_kh,
           currentZaloChatRow.ma_nv,
@@ -1581,7 +1609,8 @@
           }
         );
 
-        showNotice("Đã gửi Zalo chat cho " + currentZaloChatRow.ma_kh);
+        const result = response && response.result ? response.result : {};
+        showNotice(getWebhookDisplayMessage(result, "Đã gửi Zalo chat cho " + currentZaloChatRow.ma_kh));
         closeZaloChat();
       } catch (error) {
         console.error("Lỗi gửi Zalo chat:", error);
@@ -2465,11 +2494,14 @@
                 <button class="assign-btn" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', this)">
                   Gán KH
                 </button>
-                ${item.conversation_id ? `
-                  <button class="zalo-chat-btn" onclick="openZaloChat('${escapeJs(item.ma_kh || "")}', this)">
-                    Zalo chat
-                  </button>
-                ` : ""}
+                <button
+                  class="zalo-chat-btn"
+                  ${item.conversation_id ? "" : "disabled"}
+                  title="${item.conversation_id ? "Zalo chat" : "Khách này chưa có conversation_id"}"
+                  onclick="openZaloChat('${escapeJs(item.ma_kh || "")}', this)"
+                >
+                  Zalo chat
+                </button>
               </div>
             </td>
           </tr>
