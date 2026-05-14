@@ -2005,7 +2005,7 @@
     function renderStaffSelect(maKh, currentMaNv) {
       const selectedValue = String(currentMaNv || "").trim();
 
-      let options = `<option value="">-- Chưa gán --</option>`;
+      let options = `<option value=""></option>`;
 
       staffRows.forEach(function (staff) {
         if (!staff.ma_nv) {
