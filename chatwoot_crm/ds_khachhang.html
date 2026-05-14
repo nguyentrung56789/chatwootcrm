@@ -1487,6 +1487,31 @@
       return raw;
     }
 
+    function markAssignButtonDone(buttonEl, row, conversationId, contactId) {
+      if (row) {
+        row.conversation_id = conversationId || row.conversation_id || null;
+        row.chatwoot_contact_id = contactId || row.chatwoot_contact_id || null;
+      }
+
+      if (!buttonEl) {
+        return;
+      }
+
+      // Gán xong chỉ làm mờ/khóa nút Gán KH, không ẩn nút.
+      buttonEl.disabled = true;
+      buttonEl.textContent = "Đã gán";
+      buttonEl.title = "Mã KH này đã được gán hội thoại";
+
+      // Nếu gán được conversation_id thì bật sáng nút Zalo chat ngay trên dòng đó.
+      const tr = buttonEl.closest("tr");
+      const zaloBtn = tr ? tr.querySelector(".zalo-chat-btn") : null;
+
+      if (zaloBtn && conversationId) {
+        zaloBtn.disabled = false;
+        zaloBtn.title = "Zalo chat";
+      }
+    }
+
     function normalizeConversationId(value) {
       const text = String(value ?? "").trim();
       return text ? text : null;
@@ -1643,13 +1668,8 @@
 
         const result = response && response.result ? response.result : {};
 
-        if (buttonEl) {
-          buttonEl.style.display = "none";
-        }
-
         // Cập nhật lại dữ liệu trên dòng hiện tại để Zalo chat dùng được ngay sau khi gán.
-        row.conversation_id = conversationId;
-        row.chatwoot_contact_id = contactId || row.chatwoot_contact_id || null;
+        markAssignButtonDone(buttonEl, row, conversationId, contactId);
 
         showNotice(
           getWebhookDisplayMessage(
@@ -1735,9 +1755,13 @@
           { requireConversation: true, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
         );
 
-        if (pendingConfirmAssign.buttonEl) {
-          pendingConfirmAssign.buttonEl.style.display = "none";
-        }
+        const assignedRow = getCustomerByMaKh(pendingConfirmAssign.new_ma_kh);
+        markAssignButtonDone(
+          pendingConfirmAssign.buttonEl,
+          assignedRow,
+          pendingConfirmAssign.conversation_id || pendingConfirmAssign.chatwoot_conversation_id,
+          pendingConfirmAssign.chatwoot_contact_id
+        );
 
         const result = response && response.result ? response.result : {};
         showNotice(getWebhookDisplayMessage(result, "Đã gửi yêu cầu đổi mã KH sang " + pendingConfirmAssign.new_ma_kh));
