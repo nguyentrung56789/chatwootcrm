@@ -1487,85 +1487,178 @@
       return raw;
     }
 
+    function normalizeConversationId(value) {
+      const text = String(value ?? "").trim();
+      return text ? text : null;
+    }
+
+    async function findCustomerByConversationId(conversationId) {
+      const cid = normalizeConversationId(conversationId);
+
+      if (!cid) {
+        return null;
+      }
+
+      const foundInCurrentPage = customers.find(function (item) {
+        return normalizeConversationId(item.conversation_id) === cid;
+      });
+
+      if (supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient
+            .from(TABLE_KHACH_HANG)
+            .select("ma_kh, ten_kh, ma_nv, conversation_id, chatwoot_contact_id")
+            .eq("conversation_id", cid)
+            .limit(1);
+
+          if (error) {
+            console.warn("Không kiểm tra được conversation_id trong kv_khachhang:", error);
+          } else if (data && data.length > 0) {
+            return {
+              ma_kh: data[0].ma_kh || "",
+              ten_kh: data[0].ten_kh || "",
+              ma_nv: normalizeNullableMaNv(data[0].ma_nv),
+              conversation_id: normalizeConversationId(data[0].conversation_id),
+              chatwoot_contact_id: data[0].chatwoot_contact_id || null
+            };
+          }
+        } catch (error) {
+          console.warn("Lỗi khi kiểm tra conversation_id trong kv_khachhang:", error);
+        }
+      }
+
+      return foundInCurrentPage || null;
+    }
+
+    async function showAssignConfirm(message, title = "Xác nhận thay đổi") {
+      return new Promise(function (resolve) {
+        pendingConfirmAssign = {
+          confirmOnly: true,
+          resolve: resolve
+        };
+
+        const titleEl = document.querySelector(".confirm-assign-title");
+        if (titleEl) {
+          titleEl.textContent = title;
+        }
+
+        confirmAssignMessage.innerHTML = message;
+        confirmAssignOkBtn.disabled = false;
+        confirmAssignOkBtn.textContent = "OK";
+        confirmAssignCancelBtn.textContent = "Cancel";
+        confirmAssignModal.classList.remove("hidden");
+      });
+    }
+
     async function assignCustomerToChatwoot(maKh, buttonEl) {
-      const maNv = getMaNvForCustomer(maKh);
+      const row = getCustomerByMaKh(maKh) || { ma_kh: maKh };
+      const maNv = normalizeNullableMaNv(row.ma_nv);
+      const rowConversationId = normalizeConversationId(row.conversation_id);
 
       if (buttonEl) {
         buttonEl.disabled = true;
-        buttonEl.textContent = "Đang gán...";
+        buttonEl.textContent = "Đang kiểm tra...";
       }
 
       try {
         await waitForChatwootContext();
 
-        const conversationId = getCurrentConversationId();
+        const conversationId = normalizeConversationId(getCurrentConversationId());
         const contactId = getCurrentContactId();
 
         if (!conversationId) {
           throw new Error("Chưa lấy được conversation_id từ Chatwoot appContext.");
         }
 
-        const currentMaKh = getCurrentAssignedMaKh();
+        let action = "gan_makh";
+        let oldConversationId = null;
+        let oldMaKh = null;
 
-        // Nếu hội thoại/contact đang có mã KH khác thì HTML tự hiện popup trước.
-        // Chỉ khi bấm OK mới gửi action sua_gan_makh.
-        if (currentMaKh && String(currentMaKh) !== String(maKh)) {
-          if (buttonEl) {
-            buttonEl.disabled = false;
-            buttonEl.textContent = "Gán KH";
+        // Lớp chặn 1: chính dòng mã KH này đã có conversation_id rồi.
+        if (rowConversationId) {
+          const ok = await showAssignConfirm(
+            `Mã KH <b>${escapeHtml(maKh)}</b> này đã được gán hội thoại:
+             <b>${escapeHtml(rowConversationId)}</b>.<br><br>
+             Bạn có muốn thay đổi không?`,
+            "Mã KH đã có hội thoại"
+          );
+
+          if (!ok) {
+            if (buttonEl) {
+              buttonEl.disabled = false;
+              buttonEl.textContent = "Gán KH";
+            }
+            return;
           }
 
-          showConfirmAssignModal({
-            old_ma_kh: currentMaKh,
-            new_ma_kh: maKh,
-            ma_nv: maNv,
-            conversation_id: conversationId,
-            chatwoot_conversation_id: conversationId,
-            chatwoot_contact_id: contactId,
-            buttonEl: buttonEl
-          });
-          return;
+          action = "sua_gan_makh";
+          oldConversationId = rowConversationId;
+        }
+
+        // Lớp chặn 2: trong toàn bộ kv_khachhang đã có dòng giữ conversation_id hiện tại chưa.
+        const existingCustomer = await findCustomerByConversationId(conversationId);
+
+        if (existingCustomer && normalizeConversationId(existingCustomer.conversation_id)) {
+          const existingMaKh = String(existingCustomer.ma_kh || "").trim();
+
+          const ok = await showAssignConfirm(
+            `Đã có mã KH <b>${escapeHtml(existingMaKh || "Không rõ")}</b>
+             được gán vào hội thoại <b>${escapeHtml(conversationId)}</b>.<br><br>
+             Bạn có muốn thay đổi sang mã KH <b>${escapeHtml(maKh)}</b> không?`,
+            "Hội thoại đã có mã KH"
+          );
+
+          if (!ok) {
+            if (buttonEl) {
+              buttonEl.disabled = false;
+              buttonEl.textContent = "Gán KH";
+            }
+            return;
+          }
+
+          action = "sua_gan_makh";
+          oldMaKh = existingMaKh || null;
+        }
+
+        if (buttonEl) {
+          buttonEl.textContent = "Đang gán...";
         }
 
         const response = await sendCustomerWebhook(
-          "gan_makh",
+          action,
           maKh,
           maNv,
           {
             source: "assign_customer_button",
             conversation_id: conversationId,
             chatwoot_conversation_id: conversationId,
-            chatwoot_contact_id: contactId
+            chatwoot_contact_id: contactId,
+            old_conversation_id: oldConversationId,
+            old_ma_kh: oldMaKh,
+            checked_row_conversation_id: rowConversationId,
+            checked_existing_ma_kh: oldMaKh
           },
           { requireConversation: true, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
         );
 
         const result = response && response.result ? response.result : {};
 
-        // Trường hợp n8n vẫn trả về cần xác nhận thì vẫn hiện popup dự phòng.
-        if (result && result.need_confirm) {
-          if (buttonEl) {
-            buttonEl.disabled = false;
-            buttonEl.textContent = "Gán KH";
-          }
-
-          showConfirmAssignModal({
-            old_ma_kh: result.old_ma_kh || result.current_ma_kh || currentMaKh || "",
-            new_ma_kh: result.new_ma_kh || maKh,
-            ma_nv: maNv,
-            conversation_id: result.conversation_id || response.payload.conversation_id,
-            chatwoot_conversation_id: result.chatwoot_conversation_id || response.payload.chatwoot_conversation_id,
-            chatwoot_contact_id: result.chatwoot_contact_id || response.payload.chatwoot_contact_id,
-            buttonEl: buttonEl
-          });
-          return;
-        }
-
         if (buttonEl) {
           buttonEl.style.display = "none";
         }
 
-        showNotice(getWebhookDisplayMessage(result, "Đã gửi yêu cầu gán KH: " + maKh));
+        // Cập nhật lại dữ liệu trên dòng hiện tại để Zalo chat dùng được ngay sau khi gán.
+        row.conversation_id = conversationId;
+        row.chatwoot_contact_id = contactId || row.chatwoot_contact_id || null;
+
+        showNotice(
+          getWebhookDisplayMessage(
+            result,
+            action === "sua_gan_makh"
+              ? "Đã gửi yêu cầu sửa gán KH: " + maKh
+              : "Đã gửi yêu cầu gán KH: " + maKh
+          )
+        );
       } catch (error) {
         console.error("Lỗi gán KH:", error);
 
@@ -1593,12 +1686,33 @@
     }
 
     function closeConfirmAssignModal() {
+      if (pendingConfirmAssign && pendingConfirmAssign.confirmOnly && pendingConfirmAssign.resolve) {
+        pendingConfirmAssign.resolve(false);
+      }
+
       pendingConfirmAssign = null;
       confirmAssignModal.classList.add("hidden");
+      confirmAssignOkBtn.disabled = false;
+      confirmAssignOkBtn.textContent = "Đồng ý thay đổi";
+      confirmAssignCancelBtn.textContent = "Hủy";
     }
 
     async function confirmChangeAssignMaKh() {
       if (!pendingConfirmAssign) {
+        return;
+      }
+
+      if (pendingConfirmAssign.confirmOnly) {
+        const resolve = pendingConfirmAssign.resolve;
+        pendingConfirmAssign = null;
+        confirmAssignModal.classList.add("hidden");
+        confirmAssignOkBtn.disabled = false;
+        confirmAssignOkBtn.textContent = "Đồng ý thay đổi";
+        confirmAssignCancelBtn.textContent = "Hủy";
+
+        if (resolve) {
+          resolve(true);
+        }
         return;
       }
 
