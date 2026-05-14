@@ -551,30 +551,31 @@
       color: #111827;
     }
 
+
     .confirm-assign-modal {
       position: fixed;
       inset: 0;
       z-index: 7000;
+      background: rgba(15, 23, 42, 0.48);
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 18px;
-      background: rgba(15, 23, 42, 0.38);
+      padding: 16px;
     }
 
     .confirm-assign-box {
-      width: min(430px, 94vw);
+      width: min(440px, 92vw);
       background: #ffffff;
       border-radius: 14px;
       border: 1px solid #e5e7eb;
-      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.25);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
       padding: 18px;
       color: #111827;
     }
 
     .confirm-assign-title {
-      font-size: 17px;
       font-weight: 800;
+      font-size: 16px;
       margin-bottom: 10px;
     }
 
@@ -582,20 +583,20 @@
       font-size: 14px;
       line-height: 1.55;
       color: #374151;
-      margin-bottom: 16px;
     }
 
     .confirm-assign-actions {
       display: flex;
       justify-content: flex-end;
-      gap: 10px;
+      gap: 8px;
+      margin-top: 16px;
     }
 
     .confirm-assign-actions button {
       border: none;
-      border-radius: 9px;
-      padding: 9px 12px;
-      font-size: 14px;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
       font-weight: 700;
       cursor: pointer;
     }
@@ -937,6 +938,7 @@
           </div>
         </div>
       </div>
+
     </main>
   </div>
 
@@ -1322,27 +1324,28 @@
     }
 
     async function buildWebhookPayload(action, maKh, maNv, extra) {
-      await waitForChatwootContext();
+      const data = extra || {};
 
-      const extraData = extra || {};
-      const conversationId = extraData.conversation_id
-        ? String(extraData.conversation_id)
-        : getCurrentConversationId();
-      const contactId = extraData.chatwoot_contact_id
-        ? String(extraData.chatwoot_contact_id)
-        : getCurrentContactId();
+      const contextConversationId = data.conversation_id || data.chatwoot_conversation_id
+        ? String(data.conversation_id || data.chatwoot_conversation_id)
+        : null;
+
+      if (!contextConversationId) {
+        await waitForChatwootContext();
+      }
+
+      const conversationId = contextConversationId || getCurrentConversationId();
+      const contactId = data.chatwoot_contact_id || getCurrentContactId();
 
       return {
         action: action,
         ma_kh: maKh,
         ma_nv: normalizeNullableMaNv(maNv),
-        conversation_id: conversationId,
-        chatwoot_conversation_id: extraData.chatwoot_conversation_id
-          ? String(extraData.chatwoot_conversation_id)
-          : conversationId,
+        conversation_id: conversationId ? String(conversationId) : null,
+        chatwoot_conversation_id: conversationId ? String(conversationId) : null,
         chatwoot_contact_id: contactId ? String(contactId) : null,
-        source: extraData.source || "",
-        ...extraData
+        source: data.source || "",
+        ...data
       };
     }
 
@@ -1361,9 +1364,9 @@
         throw new Error("Chưa lấy được ID hội thoại từ Chatwoot appContext.");
       }
 
-      console.log("SEND WEBHOOK PAYLOAD:", payload);
+      const webhookUrl = opts.webhookUrl || UPDATE_STAFF_WEBHOOK_URL;
+      console.log("SEND WEBHOOK PAYLOAD:", payload, "URL:", webhookUrl);
 
-      const webhookUrl = action === "zalo_chat" ? ZALO_CHAT_WEBHOOK_URL : UPDATE_STAFF_WEBHOOK_URL;
       const resp = await fetch(webhookUrl, {
         method: "POST",
         headers: {
@@ -1391,8 +1394,13 @@
       };
     }
 
-    async function assignCustomerToChatwoot(maKh) {
+    async function assignCustomerToChatwoot(maKh, buttonEl) {
       const maNv = getMaNvForCustomer(maKh);
+
+      if (buttonEl) {
+        buttonEl.disabled = true;
+        buttonEl.textContent = "Đang gán...";
+      }
 
       try {
         const response = await sendCustomerWebhook(
@@ -1403,24 +1411,39 @@
           { requireConversation: true }
         );
 
-        const payload = response.payload || {};
-        const result = response.result || {};
+        const result = response && response.result ? response.result : {};
 
-        if (result.need_confirm) {
+        if (result && result.need_confirm) {
+          if (buttonEl) {
+            buttonEl.disabled = false;
+            buttonEl.textContent = "Gán KH";
+          }
+
           showConfirmAssignModal({
             old_ma_kh: result.old_ma_kh || result.current_ma_kh || "",
             new_ma_kh: result.new_ma_kh || maKh,
             ma_nv: maNv,
-            conversation_id: result.conversation_id || payload.conversation_id,
-            chatwoot_contact_id: result.chatwoot_contact_id || payload.chatwoot_contact_id,
-            message: result.message || ""
+            conversation_id: result.conversation_id || response.payload.conversation_id,
+            chatwoot_conversation_id: result.chatwoot_conversation_id || response.payload.chatwoot_conversation_id,
+            chatwoot_contact_id: result.chatwoot_contact_id || response.payload.chatwoot_contact_id,
+            buttonEl: buttonEl
           });
           return;
         }
 
-        showNotice(result.message || "Đã gửi yêu cầu gán KH: " + maKh);
+        if (buttonEl) {
+          buttonEl.classList.add("hidden");
+        }
+
+        showNotice((result && result.message) || "Đã gán KH: " + maKh);
       } catch (error) {
         console.error("Lỗi gán KH:", error);
+
+        if (buttonEl) {
+          buttonEl.disabled = false;
+          buttonEl.textContent = "Gán KH";
+        }
+
         showNotice("Lỗi gán KH: " + (error.message || JSON.stringify(error)), "error", 3500);
       }
     }
@@ -1428,17 +1451,12 @@
     function showConfirmAssignModal(data) {
       pendingConfirmAssign = data;
 
-      const oldMaKh = data.old_ma_kh || "";
-      const newMaKh = data.new_ma_kh || data.ma_kh || "";
-      const message = data.message ||
-        `Cuộc hội thoại này đã được gán với mã KH: ${oldMaKh}. Bạn có muốn thay đổi sang ${newMaKh} không?`;
-
       confirmAssignMessage.innerHTML = `
-        <div>${escapeHtml(message)}</div>
-        <div style="margin-top:8px;">
-          Mã cũ: <b>${escapeHtml(oldMaKh)}</b><br>
-          Mã mới: <b>${escapeHtml(newMaKh)}</b>
-        </div>
+        Cuộc hội thoại này đã được gán với mã KH:
+        <b>${escapeHtml(data.old_ma_kh || "")}</b>.<br>
+        Bạn có muốn thay đổi sang
+        <b>${escapeHtml(data.new_ma_kh || "")}</b>
+        không?
       `;
 
       confirmAssignModal.classList.remove("hidden");
@@ -1449,13 +1467,10 @@
       confirmAssignModal.classList.add("hidden");
     }
 
-    async function confirmChangeAssignedCustomer() {
+    async function confirmChangeAssignMaKh() {
       if (!pendingConfirmAssign) {
         return;
       }
-
-      const data = pendingConfirmAssign;
-      const newMaKh = data.new_ma_kh || data.ma_kh || "";
 
       confirmAssignOkBtn.disabled = true;
       confirmAssignOkBtn.textContent = "Đang đổi...";
@@ -1463,25 +1478,28 @@
       try {
         const response = await sendCustomerWebhook(
           "sua_gan_makh",
-          newMaKh,
-          data.ma_nv,
+          pendingConfirmAssign.new_ma_kh,
+          pendingConfirmAssign.ma_nv,
           {
             confirm: true,
-            old_ma_kh: data.old_ma_kh || null,
-            conversation_id: data.conversation_id,
-            chatwoot_conversation_id: data.conversation_id,
-            chatwoot_contact_id: data.chatwoot_contact_id || null,
+            old_ma_kh: pendingConfirmAssign.old_ma_kh,
+            conversation_id: pendingConfirmAssign.conversation_id,
+            chatwoot_conversation_id: pendingConfirmAssign.chatwoot_conversation_id,
+            chatwoot_contact_id: pendingConfirmAssign.chatwoot_contact_id,
             source: "confirm_change_assign"
           },
           { requireConversation: true }
         );
 
-        const result = response.result || {};
+        if (pendingConfirmAssign.buttonEl) {
+          pendingConfirmAssign.buttonEl.classList.add("hidden");
+        }
+
+        const result = response && response.result ? response.result : {};
+        showNotice(result.message || "Đã đổi mã KH sang " + pendingConfirmAssign.new_ma_kh);
         closeConfirmAssignModal();
-        showNotice(result.message || "Đã đổi mã khách hàng sang " + newMaKh, "ok", 2200);
-        await loadCustomersFromSupabase(currentPage);
       } catch (error) {
-        console.error("Lỗi xác nhận đổi mã KH:", error);
+        console.error("Lỗi đổi mã KH:", error);
         showNotice("Lỗi đổi mã KH: " + (error.message || JSON.stringify(error)), "error", 3500);
       } finally {
         confirmAssignOkBtn.disabled = false;
@@ -1493,7 +1511,7 @@
       const customer = getCustomerByMaKh(maKh);
 
       if (!customer || !customer.conversation_id) {
-        showNotice("Khách này chưa có conversation_id nên chưa thể Zalo chat.", "error", 2200);
+        showNotice("Khách này chưa có hội thoại Zalo.", "error", 2200);
         return;
       }
 
@@ -1506,7 +1524,7 @@
         chatwoot_contact_id: customer.chatwoot_contact_id || null
       };
 
-      zaloChatTitle.textContent = "Zalo chat - " + (currentZaloChatRow.ten_kh || currentZaloChatRow.ma_kh);
+      zaloChatTitle.textContent = "Zalo chat - " + currentZaloChatRow.ma_kh;
       zaloChatText.value = "";
       zaloChatPopover.classList.remove("hidden");
 
@@ -1554,10 +1572,13 @@
             sdt: currentZaloChatRow.sdt || "",
             conversation_id: currentZaloChatRow.conversation_id,
             chatwoot_conversation_id: currentZaloChatRow.conversation_id,
-            chatwoot_contact_id: currentZaloChatRow.chatwoot_contact_id || null,
+            chatwoot_contact_id: currentZaloChatRow.chatwoot_contact_id,
             message: message
           },
-          { requireConversation: false }
+          {
+            requireConversation: true,
+            webhookUrl: ZALO_CHAT_WEBHOOK_URL
+          }
         );
 
         showNotice("Đã gửi Zalo chat cho " + currentZaloChatRow.ma_kh);
@@ -2217,7 +2238,7 @@
     zaloChatCloseBtn.addEventListener("click", closeZaloChat);
     zaloChatSendBtn.addEventListener("click", sendZaloChatMessage);
     confirmAssignCancelBtn.addEventListener("click", closeConfirmAssignModal);
-    confirmAssignOkBtn.addEventListener("click", confirmChangeAssignedCustomer);
+    confirmAssignOkBtn.addEventListener("click", confirmChangeAssignMaKh);
 
     zaloChatText.addEventListener("keydown", function (event) {
       if (event.key === "Enter" && !event.shiftKey) {
@@ -2441,7 +2462,7 @@
             </td>
             <td>
               <div class="row-actions">
-                <button class="assign-btn" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}')">
+                <button class="assign-btn" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', this)">
                   Gán KH
                 </button>
                 ${item.conversation_id ? `
