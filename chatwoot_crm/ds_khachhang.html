@@ -54,7 +54,7 @@
 
     .toolbar {
       display: grid;
-      grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.55fr) auto;
+      grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.55fr) auto auto;
       gap: 6px;
       margin-bottom: 8px;
       align-items: center;
@@ -102,6 +102,31 @@
     #searchBtn.loading {
       opacity: 0.65;
       pointer-events: none;
+    }
+
+    #refreshBtn {
+      height: 34px;
+      min-width: 92px;
+      border: none;
+      background: #10b981;
+      color: #ffffff;
+      padding: 0 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    #refreshBtn:hover {
+      background: #059669;
+    }
+
+    #refreshBtn.loading,
+    #refreshBtn:disabled {
+      opacity: 0.65;
+      pointer-events: none;
+      cursor: not-allowed;
     }
 
     .staff-dropdown {
@@ -537,6 +562,85 @@
       box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
     }
 
+    .zalo-attach-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .zalo-attach-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 32px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      background: #eef2ff;
+      color: #1d4ed8;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid #c7d2fe;
+      user-select: none;
+    }
+
+    .zalo-attach-btn:hover {
+      background: #e0e7ff;
+    }
+
+    #zaloAttachmentName {
+      font-size: 12px;
+      color: #374151;
+      max-width: 210px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    #zaloAttachmentPreview {
+      margin-top: 8px;
+    }
+
+    #zaloAttachmentPreview img,
+    #zaloAttachmentPreview video {
+      max-width: 180px;
+      max-height: 130px;
+      border-radius: 8px;
+      border: 1px solid #d1d5db;
+      display: block;
+      background: #000000;
+    }
+
+    .zalo-file-preview {
+      font-size: 12px;
+      color: #374151;
+      padding: 8px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #f9fafb;
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .zalo-file-remove {
+      border: none;
+      background: #fee2e2;
+      color: #991b1b;
+      border-radius: 7px;
+      padding: 6px 8px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .zalo-file-remove:hover {
+      background: #fecaca;
+    }
+
     .zalo-chat-actions {
       display: flex;
       justify-content: flex-end;
@@ -767,7 +871,8 @@
 
       .toolbar input,
       #staffDropdownBtn,
-      #searchBtn {
+      #searchBtn,
+      #refreshBtn {
         height: 30px;
         font-size: 12px;
       }
@@ -834,6 +939,7 @@
         </div>
 
         <button id="searchBtn">Tìm kiếm</button>
+        <button id="refreshBtn" type="button">↻ Làm mới</button>
       </div>
 
       <div class="table-wrap">
@@ -933,7 +1039,26 @@
 
       <div id="zaloChatPopover" class="zalo-chat-popover hidden">
         <div class="zalo-chat-title" id="zaloChatTitle">Zalo chat</div>
+
         <textarea id="zaloChatText" placeholder="Nhập nội dung... Enter để gửi, Shift + Enter để xuống dòng"></textarea>
+
+        <div class="zalo-attach-row">
+          <label class="zalo-attach-btn">
+            📎 Ảnh / tệp / video
+            <input
+              id="zaloAttachmentInput"
+              type="file"
+              accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.rar"
+              hidden
+            />
+          </label>
+
+          <span id="zaloAttachmentName"></span>
+          <button id="zaloAttachmentRemoveBtn" type="button" class="zalo-file-remove hidden">Xóa</button>
+        </div>
+
+        <div id="zaloAttachmentPreview"></div>
+
         <div class="zalo-chat-actions">
           <button id="zaloChatCloseBtn" type="button" class="zalo-chat-close">Đóng</button>
           <button id="zaloChatSendBtn" type="button" class="zalo-chat-send">Gửi</button>
@@ -983,6 +1108,7 @@
     let chatwootContextReadyResolvers = [];
     let currentZaloChatRow = null;
     let pendingConfirmAssign = null;
+    let zaloAttachmentPreviewUrl = "";
 
     const CHATWOOT_FETCH_INFO_EVENT = "chatwoot-dashboard-app:fetch-info";
 
@@ -997,6 +1123,7 @@
     const logoutBtn = document.getElementById("logoutBtn");
     const searchInput = document.getElementById("searchInput");
     const searchBtn = document.getElementById("searchBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
     const customerBody = document.getElementById("customerBody");
 
     const firstPageBtn = document.getElementById("firstPageBtn");
@@ -1021,6 +1148,10 @@
     const zaloChatText = document.getElementById("zaloChatText");
     const zaloChatCloseBtn = document.getElementById("zaloChatCloseBtn");
     const zaloChatSendBtn = document.getElementById("zaloChatSendBtn");
+    const zaloAttachmentInput = document.getElementById("zaloAttachmentInput");
+    const zaloAttachmentName = document.getElementById("zaloAttachmentName");
+    const zaloAttachmentPreview = document.getElementById("zaloAttachmentPreview");
+    const zaloAttachmentRemoveBtn = document.getElementById("zaloAttachmentRemoveBtn");
     const confirmAssignModal = document.getElementById("confirmAssignModal");
     const confirmAssignMessage = document.getElementById("confirmAssignMessage");
     const confirmAssignCancelBtn = document.getElementById("confirmAssignCancelBtn");
@@ -1502,9 +1633,22 @@
       buttonEl.textContent = "Đã gán";
       buttonEl.title = "Mã KH này đã được gán hội thoại";
 
-      // Nếu gán được conversation_id thì bật sáng nút Zalo chat ngay trên dòng đó.
+      // Nếu gán được conversation_id thì bật/tạo nút Zalo chat ngay trên dòng đó.
       const tr = buttonEl.closest("tr");
-      const zaloBtn = tr ? tr.querySelector(".zalo-chat-btn") : null;
+      const rowActions = tr ? tr.querySelector(".row-actions") : null;
+      let zaloBtn = tr ? tr.querySelector(".zalo-chat-btn") : null;
+
+      if (conversationId && !zaloBtn && rowActions && row && row.ma_kh) {
+        zaloBtn = document.createElement("button");
+        zaloBtn.type = "button";
+        zaloBtn.className = "zalo-chat-btn";
+        zaloBtn.textContent = "Zalo chat";
+        zaloBtn.title = "Zalo chat";
+        zaloBtn.onclick = function () {
+          openZaloChat(row.ma_kh, zaloBtn);
+        };
+        rowActions.appendChild(zaloBtn);
+      }
 
       if (zaloBtn && conversationId) {
         zaloBtn.disabled = false;
@@ -1808,10 +1952,88 @@
       }, 50);
     }
 
+    function resetZaloAttachment() {
+      if (zaloAttachmentPreviewUrl) {
+        URL.revokeObjectURL(zaloAttachmentPreviewUrl);
+        zaloAttachmentPreviewUrl = "";
+      }
+
+      if (zaloAttachmentInput) {
+        zaloAttachmentInput.value = "";
+      }
+
+      if (zaloAttachmentName) {
+        zaloAttachmentName.textContent = "";
+      }
+
+      if (zaloAttachmentPreview) {
+        zaloAttachmentPreview.innerHTML = "";
+      }
+
+      if (zaloAttachmentRemoveBtn) {
+        zaloAttachmentRemoveBtn.classList.add("hidden");
+      }
+    }
+
+    function handleZaloAttachmentChanged() {
+      const file = zaloAttachmentInput && zaloAttachmentInput.files
+        ? zaloAttachmentInput.files[0]
+        : null;
+
+      if (!file) {
+        resetZaloAttachment();
+        return;
+      }
+
+      const maxSizeMb = 50;
+      const maxBytes = maxSizeMb * 1024 * 1024;
+
+      if (file.size > maxBytes) {
+        showNotice("File quá lớn. Tạm giới hạn " + maxSizeMb + "MB.", "error", 3000);
+        resetZaloAttachment();
+        return;
+      }
+
+      if (zaloAttachmentName) {
+        zaloAttachmentName.textContent = file.name;
+      }
+
+      if (zaloAttachmentRemoveBtn) {
+        zaloAttachmentRemoveBtn.classList.remove("hidden");
+      }
+
+      if (zaloAttachmentPreviewUrl) {
+        URL.revokeObjectURL(zaloAttachmentPreviewUrl);
+      }
+
+      zaloAttachmentPreviewUrl = URL.createObjectURL(file);
+
+      if (file.type.startsWith("image/")) {
+        zaloAttachmentPreview.innerHTML = `
+          <img src="${zaloAttachmentPreviewUrl}" alt="Ảnh đã chọn">
+        `;
+        return;
+      }
+
+      if (file.type.startsWith("video/")) {
+        zaloAttachmentPreview.innerHTML = `
+          <video src="${zaloAttachmentPreviewUrl}" controls></video>
+        `;
+        return;
+      }
+
+      zaloAttachmentPreview.innerHTML = `
+        <div class="zalo-file-preview">
+          📎 ${escapeHtml(file.name)}
+        </div>
+      `;
+    }
+
     function closeZaloChat() {
       currentZaloChatRow = null;
       zaloChatPopover.classList.add("hidden");
       zaloChatText.value = "";
+      resetZaloAttachment();
     }
 
     async function sendZaloChatMessage() {
@@ -1820,9 +2042,12 @@
       }
 
       const message = zaloChatText.value.trim();
+      const file = zaloAttachmentInput && zaloAttachmentInput.files
+        ? zaloAttachmentInput.files[0]
+        : null;
 
-      if (!message) {
-        showNotice("Chưa nhập nội dung chat.", "error", 1800);
+      if (!message && !file) {
+        showNotice("Chưa nhập nội dung hoặc chọn file.", "error", 1800);
         return;
       }
 
@@ -1830,26 +2055,54 @@
       zaloChatSendBtn.textContent = "Đang gửi...";
 
       try {
-        const response = await sendCustomerWebhook(
-          "zalo_chat",
-          currentZaloChatRow.ma_kh,
-          currentZaloChatRow.ma_nv,
-          {
-            source: "zalo_chat_button",
-            ten_kh: currentZaloChatRow.ten_kh || "",
-            sdt: currentZaloChatRow.sdt || "",
-            conversation_id: currentZaloChatRow.conversation_id,
-            chatwoot_conversation_id: currentZaloChatRow.conversation_id,
-            chatwoot_contact_id: currentZaloChatRow.chatwoot_contact_id,
-            message: message
-          },
-          {
-            requireConversation: true,
-            webhookUrl: ZALO_CHAT_WEBHOOK_URL
-          }
-        );
+        const formData = new FormData();
 
-        const result = response && response.result ? response.result : {};
+        formData.append("action", "zalo_chat");
+        formData.append("source", "zalo_chat_button");
+        formData.append("ma_kh", currentZaloChatRow.ma_kh || "");
+        formData.append("ma_nv", currentZaloChatRow.ma_nv || "");
+        formData.append("ten_kh", currentZaloChatRow.ten_kh || "");
+        formData.append("sdt", currentZaloChatRow.sdt || "");
+        formData.append("conversation_id", currentZaloChatRow.conversation_id || "");
+        formData.append("chatwoot_conversation_id", currentZaloChatRow.conversation_id || "");
+        formData.append("chatwoot_contact_id", currentZaloChatRow.chatwoot_contact_id || "");
+        formData.append("message", message || "");
+
+        if (file) {
+          formData.append("attachment", file, file.name);
+          formData.append("attachment_name", file.name);
+          formData.append("attachment_type", file.type || "");
+          formData.append("attachment_size", String(file.size || 0));
+
+          if (file.type.startsWith("image/")) {
+            formData.append("attachment_kind", "image");
+          } else if (file.type.startsWith("video/")) {
+            formData.append("attachment_kind", "video");
+          } else {
+            formData.append("attachment_kind", "file");
+          }
+        } else {
+          formData.append("attachment_kind", "text");
+        }
+
+        const resp = await fetch(ZALO_CHAT_WEBHOOK_URL, {
+          method: "POST",
+          body: formData
+        });
+
+        const text = await resp.text();
+        let result = {};
+
+        try {
+          result = text ? JSON.parse(text) : {};
+        } catch (error) {
+          result = { raw: text };
+        }
+
+        if (!resp.ok) {
+          throw new Error(result.message || text || "Webhook lỗi");
+        }
+
         showNotice(getWebhookDisplayMessage(result, "Đã gửi Zalo chat cho " + currentZaloChatRow.ma_kh));
         closeZaloChat();
       } catch (error) {
@@ -2139,6 +2392,37 @@
         pageInput.disabled = false;
 
         updatePagination();
+      }
+    }
+
+    async function refreshCustomersSmooth() {
+      if (isLoadingCustomers) {
+        return;
+      }
+
+      if (!supabaseClient) {
+        showNotice("Supabase chưa sẵn sàng.", "error", 2500);
+        return;
+      }
+
+      if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.classList.add("loading");
+        refreshBtn.textContent = "Đang làm mới...";
+      }
+
+      try {
+        await loadCustomersFromSupabase(currentPage);
+        showNotice("Đã làm mới dữ liệu.");
+      } catch (error) {
+        console.error("Lỗi làm mới:", error);
+        showNotice("Lỗi làm mới: " + (error.message || JSON.stringify(error)), "error", 3500);
+      } finally {
+        if (refreshBtn) {
+          refreshBtn.disabled = false;
+          refreshBtn.classList.remove("loading");
+          refreshBtn.textContent = "↻ Làm mới";
+        }
       }
     }
 
@@ -2491,6 +2775,10 @@
       loadCustomersFromSupabase(1);
     });
 
+    if (refreshBtn) {
+      refreshBtn.addEventListener("click", refreshCustomersSmooth);
+    }
+
     searchInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") {
         loadCustomersFromSupabase(1);
@@ -2506,6 +2794,14 @@
 
     zaloChatCloseBtn.addEventListener("click", closeZaloChat);
     zaloChatSendBtn.addEventListener("click", sendZaloChatMessage);
+
+    if (zaloAttachmentInput) {
+      zaloAttachmentInput.addEventListener("change", handleZaloAttachmentChanged);
+    }
+
+    if (zaloAttachmentRemoveBtn) {
+      zaloAttachmentRemoveBtn.addEventListener("click", resetZaloAttachment);
+    }
     confirmAssignCancelBtn.addEventListener("click", closeConfirmAssignModal);
     confirmAssignOkBtn.addEventListener("click", confirmChangeAssignMaKh);
 
@@ -2729,14 +3025,15 @@
                 <button class="assign-btn" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', this)">
                   Gán KH
                 </button>
-                <button
-                  class="zalo-chat-btn"
-                  ${item.conversation_id ? "" : "disabled"}
-                  title="${item.conversation_id ? "Zalo chat" : "Khách này chưa có conversation_id"}"
-                  onclick="openZaloChat('${escapeJs(item.ma_kh || "")}', this)"
-                >
-                  Zalo chat
-                </button>
+                ${item.conversation_id ? `
+                  <button
+                    class="zalo-chat-btn"
+                    title="Zalo chat"
+                    onclick="openZaloChat('${escapeJs(item.ma_kh || "")}', this)"
+                  >
+                    Zalo chat
+                  </button>
+                ` : ""}
               </div>
             </td>
           </tr>
