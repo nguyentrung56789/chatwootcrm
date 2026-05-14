@@ -958,8 +958,11 @@
     const LOGIN_STORAGE_KEY = "chatwoot_crm_user";
     const TABLE_NHAN_VIEN = "kv_nhan_vien";
     const TABLE_KHACH_HANG = "kv_khachhang";
-    const UPDATE_STAFF_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
+    const UPDATE_CHATWOOT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
     const ZALO_CHAT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/my-zalo-chatwoot";
+
+    // Giữ alias để các đoạn code cũ không bị lỗi, nhưng tất cả cập nhật KH/NV đều đi vào capnhat-chatwoot.
+    const UPDATE_STAFF_WEBHOOK_URL = UPDATE_CHATWOOT_WEBHOOK_URL;
 
     let currentUser = getLoginUser();
     let sortField = "";
@@ -1335,6 +1338,70 @@
       return normalizeNullableMaNv(found ? found.ma_nv : null);
     }
 
+    function readMaKhFromObject(obj) {
+      if (!obj || typeof obj !== "object") {
+        return null;
+      }
+
+      const candidates = [
+        obj.ma_kh,
+        obj.makh,
+        obj.customer_code,
+        obj.custom_attributes && obj.custom_attributes.ma_kh,
+        obj.custom_attributes && obj.custom_attributes.makh,
+        obj.additional_attributes && obj.additional_attributes.ma_kh,
+        obj.additional_attributes && obj.additional_attributes.makh
+      ];
+
+      for (const value of candidates) {
+        const text = String(value || "").trim();
+        if (text) {
+          return text;
+        }
+      }
+
+      return null;
+    }
+
+    function getCurrentAssignedMaKh() {
+      const queryMaKh = getQueryParam("current_ma_kh") || getQueryParam("assigned_ma_kh");
+      if (queryMaKh) {
+        return String(queryMaKh).trim();
+      }
+
+      const ctx = chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null;
+      const c = ctx && ctx.conversation ? ctx.conversation : null;
+
+      const candidates = [
+        ctx && ctx.contact,
+        ctx && ctx.sender,
+        c && c.sender,
+        c && c.contact,
+        c && c.meta && c.meta.sender,
+        c && c.meta && c.meta.contact,
+        ctx
+      ];
+
+      for (const item of candidates) {
+        const maKh = readMaKhFromObject(item);
+        if (maKh) {
+          return maKh;
+        }
+      }
+
+      if (chatwootContextRaw) {
+        const rawMaKh =
+          extractFirstMatch(chatwootContextRaw, /["']ma_kh["']\s*:\s*["']([^"']+)["']/i) ||
+          extractFirstMatch(chatwootContextRaw, /["']makh["']\s*:\s*["']([^"']+)["']/i);
+
+        if (rawMaKh) {
+          return String(rawMaKh).trim();
+        }
+      }
+
+      return null;
+    }
+
     async function buildWebhookPayload(action, maKh, maNv, extra) {
       const data = extra || {};
 
@@ -1429,16 +1496,53 @@
       }
 
       try {
+        await waitForChatwootContext();
+
+        const conversationId = getCurrentConversationId();
+        const contactId = getCurrentContactId();
+
+        if (!conversationId) {
+          throw new Error("Chưa lấy được conversation_id từ Chatwoot appContext.");
+        }
+
+        const currentMaKh = getCurrentAssignedMaKh();
+
+        // Nếu hội thoại/contact đang có mã KH khác thì HTML tự hiện popup trước.
+        // Chỉ khi bấm OK mới gửi action sua_gan_makh.
+        if (currentMaKh && String(currentMaKh) !== String(maKh)) {
+          if (buttonEl) {
+            buttonEl.disabled = false;
+            buttonEl.textContent = "Gán KH";
+          }
+
+          showConfirmAssignModal({
+            old_ma_kh: currentMaKh,
+            new_ma_kh: maKh,
+            ma_nv: maNv,
+            conversation_id: conversationId,
+            chatwoot_conversation_id: conversationId,
+            chatwoot_contact_id: contactId,
+            buttonEl: buttonEl
+          });
+          return;
+        }
+
         const response = await sendCustomerWebhook(
           "gan_makh",
           maKh,
           maNv,
-          { source: "assign_customer_button" },
-          { requireConversation: true }
+          {
+            source: "assign_customer_button",
+            conversation_id: conversationId,
+            chatwoot_conversation_id: conversationId,
+            chatwoot_contact_id: contactId
+          },
+          { requireConversation: true, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
         );
 
         const result = response && response.result ? response.result : {};
 
+        // Trường hợp n8n vẫn trả về cần xác nhận thì vẫn hiện popup dự phòng.
         if (result && result.need_confirm) {
           if (buttonEl) {
             buttonEl.disabled = false;
@@ -1446,7 +1550,7 @@
           }
 
           showConfirmAssignModal({
-            old_ma_kh: result.old_ma_kh || result.current_ma_kh || "",
+            old_ma_kh: result.old_ma_kh || result.current_ma_kh || currentMaKh || "",
             new_ma_kh: result.new_ma_kh || maKh,
             ma_nv: maNv,
             conversation_id: result.conversation_id || response.payload.conversation_id,
@@ -1458,8 +1562,7 @@
         }
 
         if (buttonEl) {
-          buttonEl.disabled = false;
-          buttonEl.textContent = "Gán KH";
+          buttonEl.style.display = "none";
         }
 
         showNotice(getWebhookDisplayMessage(result, "Đã gửi yêu cầu gán KH: " + maKh));
@@ -1515,12 +1618,11 @@
             chatwoot_contact_id: pendingConfirmAssign.chatwoot_contact_id,
             source: "confirm_change_assign"
           },
-          { requireConversation: true }
+          { requireConversation: true, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
         );
 
         if (pendingConfirmAssign.buttonEl) {
-          pendingConfirmAssign.buttonEl.disabled = false;
-          pendingConfirmAssign.buttonEl.textContent = "Gán KH";
+          pendingConfirmAssign.buttonEl.style.display = "none";
         }
 
         const result = response && response.result ? response.result : {};
@@ -1832,7 +1934,7 @@
 
         const found = getCustomerByMaKh(maKh);
         if (found) {
-          found.ma_nv = newMaNv || "";
+          found.ma_nv = newMaNv;
         }
 
         selectEl.dataset.oldMaNv = newMaNv || "";
@@ -1842,8 +1944,8 @@
           "capnhat_nv",
           maKh,
           newMaNv,
-          { source: "staff_dropdown" },
-          { requireConversation: false }
+          { source: "staff_dropdown", field: "ma_nv" },
+          { requireConversation: false, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
         );
 
         showNotice("Đã cập nhật nhân viên cho " + maKh);
@@ -1965,7 +2067,7 @@
           ten_kh: item.ten_kh || "",
           sdt: item.dien_thoai || "",
           cong_no: item.congno || 0,
-          ma_nv: normalizeNullableMaNv(item.ma_nv) || "",
+          ma_nv: normalizeNullableMaNv(item.ma_nv),
           conversation_id: item.conversation_id || null,
           chatwoot_contact_id: item.chatwoot_contact_id || null
         };
