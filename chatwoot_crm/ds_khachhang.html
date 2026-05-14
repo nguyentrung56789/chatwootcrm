@@ -2666,11 +2666,6 @@
         return String(item.ma_nv || "").trim() !== "";
       });
 
-      if (!currentUser.admin && dataHasStaffField) {
-        list = list.filter(function (item) {
-          return String(item.ma_nv || "").toLowerCase() === String(currentUser.ma_nv || "").toLowerCase();
-        });
-      }
 
       const filtered = list.filter(function (item) {
         const maNv = String(item.ma_nv || "").toLowerCase();
