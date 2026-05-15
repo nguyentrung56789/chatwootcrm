@@ -329,6 +329,146 @@
       background: #fff7ed;
     }
 
+    .staff-chip-editor {
+      min-height: 38px;
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 9px;
+      background: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 4px 7px;
+      cursor: pointer;
+      overflow: visible;
+    }
+
+    .staff-chip-editor:hover,
+    .staff-chip-editor.active {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+
+    .staff-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 145px;
+      min-height: 28px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      background: #eef0f3;
+      color: #111827;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .staff-chip-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .staff-chip-remove {
+      border: none;
+      background: transparent;
+      color: #4b5563;
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 1px;
+      font-weight: 800;
+    }
+
+    .staff-chip-remove:hover {
+      color: #dc2626;
+    }
+
+    .staff-chip-placeholder {
+      color: #6b7280;
+      font-size: 13px;
+      padding: 4px 2px;
+    }
+
+    .staff-chip-picker {
+      position: fixed;
+      z-index: 6500;
+      width: 300px;
+      max-width: calc(100vw - 24px);
+      max-height: 320px;
+      overflow-y: auto;
+      background: #ffffff;
+      border: 1px solid #d1d5db;
+      border-radius: 12px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+      padding: 8px;
+    }
+
+    .staff-chip-picker-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #111827;
+      margin: 2px 4px 8px;
+    }
+
+    .staff-chip-picker label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 7px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #111827;
+    }
+
+    .staff-chip-picker label:hover {
+      background: #f3f4f6;
+    }
+
+    .staff-chip-picker input {
+      width: auto;
+      height: auto;
+      margin: 0;
+    }
+
+
+    .staff-chip-option {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 9px 10px;
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #111827;
+      background: transparent;
+      text-align: left;
+      font-family: inherit;
+    }
+
+    .staff-chip-option:hover {
+      background: #f3f4f6;
+    }
+
+    .staff-chip-option-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 600;
+    }
+
+    .staff-chip-empty-option {
+      padding: 10px;
+      color: #6b7280;
+      font-size: 13px;
+    }
+
     .footer-actions {
       margin-top: 6px;
       display: flex;
@@ -506,6 +646,55 @@
       background: #1d4ed8;
     }
 
+    .customer-table button.assign-btn.has-staff-dropdown::after {
+      content: " ▾";
+      font-size: 12px;
+      font-weight: 900;
+    }
+
+    .zalo-chat-popover.assign-staff-dropdown {
+      width: 260px;
+      padding: 8px;
+    }
+
+    .zalo-chat-popover.assign-staff-dropdown .zalo-chat-title,
+    .zalo-chat-popover.assign-staff-dropdown .zalo-sender-chooser-title {
+      display: none;
+    }
+
+    .zalo-chat-popover.assign-staff-dropdown .zalo-sender-chooser {
+      margin-bottom: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+
+    .zalo-chat-popover.assign-staff-dropdown .zalo-sender-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .zalo-chat-popover.assign-staff-dropdown .zalo-sender-btn {
+      width: 100%;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .zalo-chat-popover.assign-staff-dropdown .zalo-sender-btn::after {
+      content: "Chọn";
+      font-size: 11px;
+      font-weight: 700;
+      color: #6b7280;
+    }
+
+    .zalo-chat-popover.assign-staff-dropdown .zalo-sender-btn.selected::after {
+      content: "✓";
+      color: #ffffff;
+    }
+
     .customer-table button.zalo-chat-btn {
       background: #16a34a;
     }
@@ -543,6 +732,61 @@
       font-weight: 700;
       color: #111827;
       margin-bottom: 8px;
+    }
+
+    .zalo-sender-info {
+      margin-bottom: 8px;
+      padding: 7px 8px;
+      border-radius: 8px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .zalo-sender-chooser {
+      margin-bottom: 8px;
+      padding: 8px;
+      border-radius: 10px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+    }
+
+    .zalo-sender-chooser-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .zalo-sender-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .zalo-sender-btn {
+      border: 1px solid #d1d5db;
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: #ffffff;
+      color: #111827;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .zalo-sender-btn:hover {
+      border-color: #16a34a;
+      background: #f0fdf4;
+    }
+
+    .zalo-sender-btn.selected {
+      border-color: #16a34a;
+      background: #16a34a;
+      color: #ffffff;
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.16);
     }
 
     .zalo-chat-popover textarea {
@@ -1039,6 +1283,8 @@
 
       <div id="zaloChatPopover" class="zalo-chat-popover hidden">
         <div class="zalo-chat-title" id="zaloChatTitle">Zalo chat</div>
+        <div id="zaloSenderInfo" class="zalo-sender-info hidden"></div>
+        <div id="zaloSenderChooser" class="zalo-sender-chooser hidden"></div>
 
         <textarea id="zaloChatText" placeholder="Nhập nội dung... Enter để gửi, Shift + Enter để xuống dòng"></textarea>
 
@@ -1081,8 +1327,10 @@
 
   <script>
     const LOGIN_STORAGE_KEY = "chatwoot_crm_user";
+    const STAFF_ASSIGNMENT_CACHE_KEY = "ds_khachhang_staff_assignment_cache_v2";
     const TABLE_NHAN_VIEN = "kv_nhan_vien";
     const TABLE_KHACH_HANG = "kv_khachhang";
+    const TABLE_KHACH_HANG_NHANVIEN = "kv_khachhang_nhanvien";
     const UPDATE_CHATWOOT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
     const ZALO_CHAT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/my-zalo-chatwoot";
 
@@ -1100,6 +1348,8 @@
     let totalRows = 0;
     let isLoadingCustomers = false;
     let staffRows = [];
+    let customerStaffMap = {};
+    let activeStaffPicker = null;
     let pendingStaffChanges = {};
     let chatwootContext = null;
     let chatwootContextRaw = "";
@@ -1145,6 +1395,8 @@
     const noticeBox = document.getElementById("noticeBox");
     const zaloChatPopover = document.getElementById("zaloChatPopover");
     const zaloChatTitle = document.getElementById("zaloChatTitle");
+    const zaloSenderInfo = document.getElementById("zaloSenderInfo");
+    const zaloSenderChooser = document.getElementById("zaloSenderChooser");
     const zaloChatText = document.getElementById("zaloChatText");
     const zaloChatCloseBtn = document.getElementById("zaloChatCloseBtn");
     const zaloChatSendBtn = document.getElementById("zaloChatSendBtn");
@@ -1342,7 +1594,7 @@
       }
     }
 
-    function waitForChatwootContext(timeoutMs = 4000) {
+    function waitForChatwootContext(timeoutMs = 1500) {
       if (getCurrentConversationId()) {
         return Promise.resolve(chatwootContext);
       }
@@ -1661,42 +1913,90 @@
       return text ? text : null;
     }
 
-    async function findCustomerByConversationId(conversationId) {
+    async function findAssignmentByConversationId(conversationId) {
       const cid = normalizeConversationId(conversationId);
 
-      if (!cid) {
+      if (!cid || !supabaseClient) {
         return null;
       }
 
-      const foundInCurrentPage = customers.find(function (item) {
-        return normalizeConversationId(item.conversation_id) === cid;
-      });
+      try {
+        const { data, error } = await supabaseClient
+          .from(TABLE_KHACH_HANG_NHANVIEN)
+          .select("id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong")
+          .eq("conversation_id", cid)
+          .eq("hoat_dong", true)
+          .limit(1);
 
-      if (supabaseClient) {
-        try {
-          const { data, error } = await supabaseClient
-            .from(TABLE_KHACH_HANG)
-            .select("ma_kh, ten_kh, ma_nv, conversation_id, chatwoot_contact_id")
-            .eq("conversation_id", cid)
-            .limit(1);
-
-          if (error) {
-            console.warn("Không kiểm tra được conversation_id trong kv_khachhang:", error);
-          } else if (data && data.length > 0) {
-            return {
-              ma_kh: data[0].ma_kh || "",
-              ten_kh: data[0].ten_kh || "",
-              ma_nv: normalizeNullableMaNv(data[0].ma_nv),
-              conversation_id: normalizeConversationId(data[0].conversation_id),
-              chatwoot_contact_id: data[0].chatwoot_contact_id || null
-            };
-          }
-        } catch (error) {
-          console.warn("Lỗi khi kiểm tra conversation_id trong kv_khachhang:", error);
+        if (error) {
+          console.warn("Không kiểm tra được conversation_id trong kv_khachhang_nhanvien:", error);
+          return null;
         }
+
+        if (!data || data.length === 0) {
+          return null;
+        }
+
+        const row = data[0];
+        const staff = getStaffByIdNv(row.id_nv);
+
+        return {
+          id: row.id,
+          ma_kh: row.ma_kh || "",
+          id_nv: normalizeKiotStaffId(row.id_nv),
+          ten_nv: staff ? staff.ten_nv : String(row.id_nv || ""),
+          conversation_id: normalizeConversationId(row.conversation_id),
+          chatwoot_contact_id: row.chatwoot_contact_id || null,
+          hoat_dong: row.hoat_dong
+        };
+      } catch (error) {
+        console.warn("Lỗi khi kiểm tra conversation_id trong kv_khachhang_nhanvien:", error);
+        return null;
+      }
+    }
+
+    async function findAssignmentByCustomerAndStaff(maKh, idNv) {
+      const cleanMaKh = String(maKh || "").trim();
+      const cleanIdNv = normalizeKiotStaffId(idNv);
+
+      if (!cleanMaKh || !cleanIdNv || !supabaseClient) {
+        return null;
       }
 
-      return foundInCurrentPage || null;
+      try {
+        const { data, error } = await supabaseClient
+          .from(TABLE_KHACH_HANG_NHANVIEN)
+          .select("id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong")
+          .eq("ma_kh", cleanMaKh)
+          .eq("id_nv", cleanIdNv)
+          .eq("hoat_dong", true)
+          .limit(1);
+
+        if (error) {
+          console.warn("Không kiểm tra được ma_kh + id_nv trong kv_khachhang_nhanvien:", error);
+          return null;
+        }
+
+        if (!data || data.length === 0) {
+          return null;
+        }
+
+        const row = data[0];
+        const staff = getStaffByIdNv(row.id_nv);
+
+        return {
+          id: row.id,
+          ma_kh: row.ma_kh || "",
+          id_nv: normalizeKiotStaffId(row.id_nv),
+          ten_nv: staff ? staff.ten_nv : String(row.id_nv || ""),
+          conversation_id: normalizeConversationId(row.conversation_id),
+          chatwoot_contact_id: row.chatwoot_contact_id || null,
+          hoat_dong: row.hoat_dong
+        };
+      } catch (error) {
+        console.warn("Lỗi khi kiểm tra ma_kh + id_nv trong kv_khachhang_nhanvien:", error);
+        return null;
+      }
     }
 
     async function showAssignConfirm(message, title = "Xác nhận thay đổi") {
@@ -1719,14 +2019,130 @@
       });
     }
 
+    function buildAssignedStaffListForCustomer(maKh) {
+      return getCustomerStaffRows(maKh)
+        .map(function (staff) {
+          return {
+            id_nv: normalizeKiotStaffId(staff.id_nv),
+            ma_nv: String(staff.ma_nv || "").trim(),
+            ten_nv: String(staff.ten_nv || staff.id_nv || "").trim()
+          };
+        })
+        .filter(function (staff) {
+          return staff.id_nv !== "";
+        });
+    }
+
+    function chooseStaffForAssignCustomer(customer, staffList, buttonEl) {
+      return new Promise(function (resolve) {
+        currentZaloChatRow = null;
+        resetZaloAttachment();
+        zaloChatText.value = "";
+
+        zaloChatTitle.textContent = "Chọn nhân viên gán KH - " + (customer.ma_kh || "");
+        zaloSenderInfo.classList.add("hidden");
+        zaloSenderInfo.textContent = "";
+        zaloChatPopover.classList.add("assign-staff-dropdown");
+
+        zaloSenderChooser.innerHTML = `
+          <div class="zalo-sender-chooser-title">Chọn nhân viên phụ trách hội thoại này:</div>
+          <div class="zalo-sender-buttons">
+            ${staffList.map(function (staff) {
+              return `
+                <button
+                  type="button"
+                  class="zalo-sender-btn"
+                  data-id-nv="${escapeHtml(staff.id_nv)}"
+                >${escapeHtml(staff.ten_nv || staff.id_nv)}</button>
+              `;
+            }).join("")}
+          </div>
+        `;
+
+        setZaloChatMode("choose_sender");
+        zaloChatPopover.classList.remove("hidden");
+        positionZaloPopover(buttonEl);
+
+        zaloSenderChooser.querySelectorAll(".zalo-sender-btn").forEach(function (btn) {
+          btn.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            zaloSenderChooser.querySelectorAll(".zalo-sender-btn").forEach(function (otherBtn) {
+              otherBtn.classList.remove("selected");
+            });
+
+            btn.classList.add("selected");
+
+            const selectedIdNv = normalizeKiotStaffId(btn.dataset.idNv);
+            const selectedStaff = staffList.find(function (staff) {
+              return normalizeKiotStaffId(staff.id_nv) === selectedIdNv;
+            });
+
+            if (!selectedStaff) {
+              showNotice("Không tìm thấy nhân viên đã chọn.", "error", 2200);
+              return;
+            }
+
+            setTimeout(function () {
+              closeZaloChat();
+              resolve(selectedStaff);
+            }, 120);
+          });
+        });
+      });
+    }
+
     async function assignCustomerToChatwoot(maKh, buttonEl) {
       const row = getCustomerByMaKh(maKh) || { ma_kh: maKh };
-      const maNv = normalizeNullableMaNv(row.ma_nv);
-      const rowConversationId = normalizeConversationId(row.conversation_id);
+      const staffList = buildAssignedStaffListForCustomer(row.ma_kh || maKh);
+
+      if (staffList.length === 0) {
+        showNotice("Khách này chưa được gán nhân viên phụ trách.", "error", 2600);
+        return;
+      }
+
+      let selectedStaff = null;
+
+      if (staffList.length === 1) {
+        selectedStaff = staffList[0];
+      } else {
+        if (buttonEl) {
+          buttonEl.textContent = "Chọn NV...";
+        }
+
+        selectedStaff = await chooseStaffForAssignCustomer(row, staffList, buttonEl);
+
+        if (!selectedStaff) {
+          if (buttonEl) {
+            buttonEl.disabled = false;
+            buttonEl.textContent = "Gán KH";
+          }
+          return;
+        }
+      }
+
+      await runAssignCustomerToChatwoot(maKh, buttonEl, selectedStaff, staffList);
+    }
+
+    async function runAssignCustomerToChatwoot(maKh, buttonEl, selectedStaff, staffList) {
+      const row = getCustomerByMaKh(maKh) || { ma_kh: maKh };
+      const selectedIdNv = normalizeKiotStaffId(selectedStaff && selectedStaff.id_nv);
+      const selectedTenNv = String((selectedStaff && (selectedStaff.ten_nv || selectedStaff.id_nv)) || "").trim();
+      const selectedMaNv = String((selectedStaff && selectedStaff.ma_nv) || "").trim();
+      const maNv = selectedIdNv || normalizeNullableMaNv(row.ma_nv);
+
+      const allIdNvList = (staffList || []).map(function (staff) {
+        return normalizeKiotStaffId(staff.id_nv);
+      }).filter(Boolean);
+
+      const allTenNvList = (staffList || []).map(function (staff) {
+        return staff.ten_nv || staff.id_nv;
+      }).filter(Boolean);
 
       if (buttonEl) {
         buttonEl.disabled = true;
-        buttonEl.textContent = "Đang kiểm tra...";
+        buttonEl.textContent = "Đang gán...";
       }
 
       try {
@@ -1739,58 +2155,77 @@
           throw new Error("Chưa lấy được conversation_id từ Chatwoot appContext.");
         }
 
+        if (!selectedIdNv) {
+          throw new Error("Chưa chọn được nhân viên phụ trách để gán KH.");
+        }
+
         let action = "gan_makh";
         let oldConversationId = null;
         let oldMaKh = null;
+        let oldIdNv = null;
+        let existingAssignmentId = null;
+        let selectedAssignmentId = null;
 
-        // Lớp chặn 1: chính dòng mã KH này đã có conversation_id rồi.
-        if (rowConversationId) {
+        // Lớp chặn 1: kiểm tra đúng cặp ma_kh + id_nv trong kv_khachhang_nhanvien.
+        const selectedAssignment = await findAssignmentByCustomerAndStaff(maKh, selectedIdNv);
+
+        if (selectedAssignment && selectedAssignment.conversation_id) {
           const ok = await showAssignConfirm(
-            `Mã KH <b>${escapeHtml(maKh)}</b> này đã được gán hội thoại:
-             <b>${escapeHtml(rowConversationId)}</b>.<br><br>
+            `Mã KH <b>${escapeHtml(maKh)}</b> với nhân viên
+             <b>${escapeHtml(selectedTenNv || selectedAssignment.ten_nv || selectedIdNv)}</b>
+             đã được gán hội thoại:
+             <b>${escapeHtml(selectedAssignment.conversation_id)}</b>.<br><br>
              Bạn có muốn thay đổi không?`,
-            "Mã KH đã có hội thoại"
+            "Nhân viên này đã có hội thoại"
           );
 
           if (!ok) {
             if (buttonEl) {
               buttonEl.disabled = false;
-              buttonEl.textContent = "Gán KH";
+              buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
             }
             return;
           }
 
           action = "sua_gan_makh";
-          oldConversationId = rowConversationId;
+          oldConversationId = selectedAssignment.conversation_id;
+          selectedAssignmentId = selectedAssignment.id || null;
         }
 
-        // Lớp chặn 2: trong toàn bộ kv_khachhang đã có dòng giữ conversation_id hiện tại chưa.
-        const existingCustomer = await findCustomerByConversationId(conversationId);
+        // Lớp chặn 2: kiểm tra hội thoại hiện tại trong kv_khachhang_nhanvien, không kiểm tra kv_khachhang nữa.
+        const existingAssignment = await findAssignmentByConversationId(conversationId);
 
-        if (existingCustomer && normalizeConversationId(existingCustomer.conversation_id)) {
-          const existingMaKh = String(existingCustomer.ma_kh || "").trim();
+        if (existingAssignment && normalizeConversationId(existingAssignment.conversation_id)) {
+          const existingMaKh = String(existingAssignment.ma_kh || "").trim();
+          const existingIdNv = normalizeKiotStaffId(existingAssignment.id_nv);
+          const existingTenNv = String(existingAssignment.ten_nv || existingIdNv || "").trim();
+          const isSameAssignment =
+            existingMaKh === String(maKh || "").trim() &&
+            existingIdNv === selectedIdNv;
 
-          const ok = await showAssignConfirm(
-            `Đã có mã KH <b>${escapeHtml(existingMaKh || "Không rõ")}</b>
-             được gán vào hội thoại <b>${escapeHtml(conversationId)}</b>.<br><br>
-             Bạn có muốn thay đổi sang mã KH <b>${escapeHtml(maKh)}</b> không?`,
-            "Hội thoại đã có mã KH"
-          );
+          if (!isSameAssignment) {
+            const ok = await showAssignConfirm(
+              `Hội thoại <b>${escapeHtml(conversationId)}</b> đã được gán cho:<br>
+               Mã KH: <b>${escapeHtml(existingMaKh || "Không rõ")}</b><br>
+               Nhân viên: <b>${escapeHtml(existingTenNv || "Không rõ")}</b><br><br>
+               Bạn có muốn chuyển sang mã KH <b>${escapeHtml(maKh)}</b>
+               / nhân viên <b>${escapeHtml(selectedTenNv || selectedIdNv)}</b> không?`,
+              "Hội thoại đã được gán"
+            );
 
-          if (!ok) {
-            if (buttonEl) {
-              buttonEl.disabled = false;
-              buttonEl.textContent = "Gán KH";
+            if (!ok) {
+              if (buttonEl) {
+                buttonEl.disabled = false;
+                buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
+              }
+              return;
             }
-            return;
+
+            action = "sua_gan_makh";
+            oldMaKh = existingMaKh || null;
+            oldIdNv = existingIdNv || null;
+            existingAssignmentId = existingAssignment.id || null;
           }
-
-          action = "sua_gan_makh";
-          oldMaKh = existingMaKh || null;
-        }
-
-        if (buttonEl) {
-          buttonEl.textContent = "Đang gán...";
         }
 
         const response = await sendCustomerWebhook(
@@ -1804,8 +2239,21 @@
             chatwoot_contact_id: contactId,
             old_conversation_id: oldConversationId,
             old_ma_kh: oldMaKh,
-            checked_row_conversation_id: rowConversationId,
-            checked_existing_ma_kh: oldMaKh
+            old_id_nv: oldIdNv,
+            selected_assignment_id: selectedAssignmentId,
+            existing_assignment_id: existingAssignmentId,
+            checked_table: TABLE_KHACH_HANG_NHANVIEN,
+            checked_existing_ma_kh: oldMaKh,
+
+            // Danh sách toàn bộ nhân viên phụ trách khách hàng.
+            id_nv_list: allIdNvList,
+            ma_nv_list: allIdNvList,
+            ten_nv_list: allTenNvList,
+
+            // Nhân viên được chọn làm đại diện cho lần gán hội thoại này.
+            selected_id_nv: selectedIdNv,
+            selected_ma_nv: selectedMaNv,
+            selected_ten_nv: selectedTenNv
           },
           { requireConversation: true, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
         );
@@ -1819,8 +2267,8 @@
           getWebhookDisplayMessage(
             result,
             action === "sua_gan_makh"
-              ? "Đã gửi yêu cầu sửa gán KH: " + maKh
-              : "Đã gửi yêu cầu gán KH: " + maKh
+              ? "Đã gửi yêu cầu sửa gán KH: " + maKh + " / NV: " + selectedTenNv
+              : "Đã gửi yêu cầu gán KH: " + maKh + " / NV: " + selectedTenNv
           )
         );
       } catch (error) {
@@ -1919,6 +2367,38 @@
       }
     }
 
+    function positionZaloPopover(buttonEl) {
+      const rect = buttonEl && buttonEl.getBoundingClientRect
+        ? buttonEl.getBoundingClientRect()
+        : { left: 12, bottom: 12 };
+
+      const left = Math.min(rect.left, window.innerWidth - 340);
+      const top = Math.min(rect.bottom + 8, window.innerHeight - 220);
+
+      zaloChatPopover.style.left = Math.max(8, left) + "px";
+      zaloChatPopover.style.top = Math.max(8, top) + "px";
+    }
+
+    function setZaloChatMode(mode) {
+      const attachRow = document.querySelector(".zalo-attach-row");
+      const actionsRow = document.querySelector(".zalo-chat-actions");
+
+      if (mode === "choose_sender") {
+        zaloChatText.classList.add("hidden");
+        if (attachRow) attachRow.classList.add("hidden");
+        if (actionsRow) actionsRow.classList.add("hidden");
+        zaloSenderInfo.classList.add("hidden");
+        zaloSenderChooser.classList.remove("hidden");
+        return;
+      }
+
+      zaloChatText.classList.remove("hidden");
+      if (attachRow) attachRow.classList.remove("hidden");
+      if (actionsRow) actionsRow.classList.remove("hidden");
+      zaloSenderChooser.classList.add("hidden");
+      zaloSenderInfo.classList.remove("hidden");
+    }
+
     function openZaloChat(maKh, buttonEl) {
       const customer = getCustomerByMaKh(maKh);
 
@@ -1927,25 +2407,122 @@
         return;
       }
 
+      const staffList = getCustomerStaffRows(customer.ma_kh || maKh)
+        .map(function (staff) {
+          return {
+            id_nv: normalizeKiotStaffId(staff.id_nv),
+            ma_nv: String(staff.ma_nv || "").trim(),
+            ten_nv: String(staff.ten_nv || staff.id_nv || "").trim()
+          };
+        })
+        .filter(function (staff) {
+          return staff.id_nv !== "";
+        });
+
+      if (staffList.length === 0) {
+        showNotice("Khách này chưa được gán nhân viên phụ trách.", "error", 2600);
+        return;
+      }
+
+      if (staffList.length === 1) {
+        openZaloChatWithSender(customer, staffList, staffList[0], buttonEl);
+        return;
+      }
+
+      openZaloSenderChooser(customer, staffList, buttonEl);
+    }
+
+    function openZaloSenderChooser(customer, staffList, buttonEl) {
+      currentZaloChatRow = null;
+      resetZaloAttachment();
+      zaloChatText.value = "";
+
+      zaloChatTitle.textContent = "Chọn nhân viên gửi - " + (customer.ma_kh || "");
+      zaloSenderInfo.classList.add("hidden");
+      zaloSenderInfo.textContent = "";
+
+      zaloSenderChooser.innerHTML = `
+        <div class="zalo-sender-chooser-title">Chọn nhân viên/hộp thư gửi:</div>
+        <div class="zalo-sender-buttons">
+          ${staffList.map(function (staff) {
+            return `
+              <button
+                type="button"
+                class="zalo-sender-btn"
+                data-id-nv="${escapeHtml(staff.id_nv)}"
+              >${escapeHtml(staff.ten_nv || staff.id_nv)}</button>
+            `;
+          }).join("")}
+        </div>
+      `;
+
+      zaloChatPopover.classList.remove("assign-staff-dropdown");
+      setZaloChatMode("choose_sender");
+      zaloChatPopover.classList.remove("hidden");
+      positionZaloPopover(buttonEl);
+
+      zaloSenderChooser.querySelectorAll(".zalo-sender-btn").forEach(function (btn) {
+        btn.addEventListener("click", function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+
+          zaloSenderChooser.querySelectorAll(".zalo-sender-btn").forEach(function (otherBtn) {
+            otherBtn.classList.remove("selected");
+          });
+
+          btn.classList.add("selected");
+
+          const selectedIdNv = normalizeKiotStaffId(btn.dataset.idNv);
+          const selectedStaff = staffList.find(function (staff) {
+            return normalizeKiotStaffId(staff.id_nv) === selectedIdNv;
+          });
+
+          if (!selectedStaff) {
+            showNotice("Không tìm thấy nhân viên đã chọn.", "error", 2200);
+            return;
+          }
+
+          setTimeout(function () {
+            openZaloChatWithSender(customer, staffList, selectedStaff, buttonEl);
+          }, 120);
+        });
+      });
+    }
+
+    function openZaloChatWithSender(customer, staffList, selectedStaff, buttonEl) {
+      const allIdNvList = staffList.map(function (staff) {
+        return normalizeKiotStaffId(staff.id_nv);
+      }).filter(Boolean);
+
+      const allNameList = staffList.map(function (staff) {
+        return staff.ten_nv || staff.id_nv;
+      }).filter(Boolean);
+
       currentZaloChatRow = {
-        ma_kh: customer.ma_kh || maKh,
+        ma_kh: customer.ma_kh || "",
         ten_kh: customer.ten_kh || "",
         sdt: customer.sdt || "",
-        ma_nv: normalizeNullableMaNv(customer.ma_nv),
         conversation_id: customer.conversation_id,
-        chatwoot_contact_id: customer.chatwoot_contact_id || null
+        chatwoot_contact_id: customer.chatwoot_contact_id || null,
+
+        // Danh sách toàn bộ nhân viên phụ trách dòng khách này.
+        ma_nv: allIdNvList,
+        id_nv_list: allIdNvList,
+        ten_nv_list: allNameList,
+
+        // Nhân viên/hộp thư được chọn để gửi tin nhắn.
+        selected_id_nv: normalizeKiotStaffId(selectedStaff.id_nv),
+        selected_ma_nv: selectedStaff.ma_nv || "",
+        selected_ten_nv: selectedStaff.ten_nv || selectedStaff.id_nv || ""
       };
 
       zaloChatTitle.textContent = "Zalo chat - " + currentZaloChatRow.ma_kh;
+      zaloSenderInfo.textContent = "Gửi qua: " + currentZaloChatRow.selected_ten_nv;
       zaloChatText.value = "";
+      zaloChatPopover.classList.remove("assign-staff-dropdown");
+      setZaloChatMode("chat");
       zaloChatPopover.classList.remove("hidden");
-
-      const rect = buttonEl.getBoundingClientRect();
-      const left = Math.min(rect.left, window.innerWidth - 340);
-      const top = Math.min(rect.bottom + 8, window.innerHeight - 180);
-
-      zaloChatPopover.style.left = Math.max(8, left) + "px";
-      zaloChatPopover.style.top = Math.max(8, top) + "px";
+      positionZaloPopover(buttonEl);
 
       setTimeout(function () {
         zaloChatText.focus();
@@ -2032,12 +2609,23 @@
     function closeZaloChat() {
       currentZaloChatRow = null;
       zaloChatPopover.classList.add("hidden");
+      zaloChatPopover.classList.remove("assign-staff-dropdown");
       zaloChatText.value = "";
+      zaloSenderInfo.textContent = "";
+      zaloSenderInfo.classList.add("hidden");
+      zaloSenderChooser.innerHTML = "";
+      zaloSenderChooser.classList.add("hidden");
+      setZaloChatMode("chat");
       resetZaloAttachment();
     }
 
     async function sendZaloChatMessage() {
       if (!currentZaloChatRow) {
+        return;
+      }
+
+      if (!currentZaloChatRow.selected_id_nv) {
+        showNotice("Chưa chọn nhân viên/hộp thư gửi.", "error", 2200);
         return;
       }
 
@@ -2060,13 +2648,22 @@
         formData.append("action", "zalo_chat");
         formData.append("source", "zalo_chat_button");
         formData.append("ma_kh", currentZaloChatRow.ma_kh || "");
-        formData.append("ma_nv", currentZaloChatRow.ma_nv || "");
         formData.append("ten_kh", currentZaloChatRow.ten_kh || "");
         formData.append("sdt", currentZaloChatRow.sdt || "");
         formData.append("conversation_id", currentZaloChatRow.conversation_id || "");
         formData.append("chatwoot_conversation_id", currentZaloChatRow.conversation_id || "");
         formData.append("chatwoot_contact_id", currentZaloChatRow.chatwoot_contact_id || "");
         formData.append("message", message || "");
+
+        // ma_nv tạm thời là mảng ID nhân viên KiotViet đang phụ trách khách.
+        formData.append("ma_nv", JSON.stringify(currentZaloChatRow.ma_nv || []));
+        formData.append("id_nv_list", JSON.stringify(currentZaloChatRow.id_nv_list || currentZaloChatRow.ma_nv || []));
+        formData.append("ten_nv_list", JSON.stringify(currentZaloChatRow.ten_nv_list || []));
+
+        // Nhân viên/hộp thư được chọn để gửi tin.
+        formData.append("selected_id_nv", currentZaloChatRow.selected_id_nv || "");
+        formData.append("selected_ma_nv", currentZaloChatRow.selected_ma_nv || "");
+        formData.append("selected_ten_nv", currentZaloChatRow.selected_ten_nv || "");
 
         if (file) {
           formData.append("attachment", file, file.name);
@@ -2102,6 +2699,13 @@
         if (!resp.ok) {
           throw new Error(result.message || text || "Webhook lỗi");
         }
+
+        console.log("ĐÃ GỬI WEBHOOK ZALO CHAT:", {
+          ma_kh: currentZaloChatRow.ma_kh,
+          ma_nv: currentZaloChatRow.ma_nv,
+          selected_id_nv: currentZaloChatRow.selected_id_nv,
+          selected_ten_nv: currentZaloChatRow.selected_ten_nv
+        });
 
         showNotice(getWebhookDisplayMessage(result, "Đã gửi Zalo chat cho " + currentZaloChatRow.ma_kh));
         closeZaloChat();
@@ -2171,43 +2775,76 @@
       }
     }
 
-async function loadStaffFromSupabase() {
-  if (!supabaseClient) {
-    return;
-  }
 
-  const { data, error } = await supabaseClient
-    .from(TABLE_NHAN_VIEN)
-    .select("id_nv, ten_nv, hoat_dong")
-    .eq("hoat_dong", true)
-    .not("id_nv", "is", null)
-    .order("ten_nv", { ascending: true });
+    function normalizeKiotStaffId(value) {
+      if (value === null || value === undefined) {
+        return "";
+      }
 
-  if (error) {
-    console.error("Lỗi tải nhân viên:", error);
-    return;
-  }
+      if (typeof value === "number") {
+        if (!Number.isFinite(value)) {
+          return "";
+        }
 
-  staffRows = (data || [])
-    .map(function (item) {
-      return {
-        // Vẫn để tên biến là ma_nv để đỡ phải sửa nhiều code phía dưới,
-        // nhưng giá trị thực tế là id_nv của KiotViet.
-        ma_nv: String(item.id_nv || "").trim(),
-        id_nv: String(item.id_nv || "").trim(),
-        ten_nv: String(item.ten_nv || item.id_nv || "").trim()
-      };
-    })
-    .filter(function (item) {
-      return item.id_nv !== "";
-    });
+        if (Number.isInteger(value)) {
+          return String(value);
+        }
 
-  renderStaffDropdown();
+        return String(value).trim().replace(/\.0$/, "");
+      }
 
-  if (customers.length > 0) {
-    renderCustomers();
-  }
-}
+      return String(value || "").trim().replace(/\.0$/, "");
+    }
+
+    async function loadStaffFromSupabase() {
+      if (!supabaseClient) {
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from(TABLE_NHAN_VIEN)
+        .select("ma_nv, id_nv, ten_nv")
+        .not("id_nv", "is", null)
+        .not("ma_nv", "is", null)
+        .order("ten_nv", { ascending: true });
+
+      if (error) {
+        console.error("Lỗi tải nhân viên:", error);
+
+        if (typeof showNotice === "function") {
+          showNotice("Lỗi tải nhân viên: " + (error.message || JSON.stringify(error)), "error", 3500);
+        }
+
+        return;
+      }
+
+      staffRows = (data || [])
+        .map(function (item) {
+          const maNv = String(item.ma_nv || "").trim();
+          const idNv = normalizeKiotStaffId(item.id_nv);
+
+          return {
+            // ma_nv là mã đăng nhập / mã nội bộ để lưu vào kv_khachhang.ma_nv.
+            ma_nv: maNv,
+
+            // id_nv là ID nhân viên KiotViet, chỉ dùng để lọc và gửi kèm webhook.
+            id_nv: idNv,
+
+            ten_nv: String(item.ten_nv || maNv || idNv || "").trim()
+          };
+        })
+        .filter(function (item) {
+          // Chỉ hiện nhân viên đã có cả mã đăng nhập ma_nv và ID KiotViet id_nv.
+          return item.ma_nv !== "" && item.id_nv !== "";
+        });
+
+      renderStaffDropdown();
+
+      if (customers.length > 0) {
+        renderCustomers();
+      }
+    }
+
 
     function renderStaffDropdown() {
       staffDropdownMenu.innerHTML = `
@@ -2218,7 +2855,7 @@ async function loadStaffFromSupabase() {
       `;
 
       staffRows.forEach(function (staff) {
-        if (!staff.ma_nv) {
+        if (!staff.id_nv) {
           return;
         }
 
@@ -2228,7 +2865,9 @@ async function loadStaffFromSupabase() {
           <input
             type="checkbox"
             class="staff-option"
-            value="${escapeHtml(staff.ma_nv)}"
+            value="${escapeHtml(staff.id_nv)}"
+            data-ma-nv="${escapeHtml(staff.ma_nv || "")}"
+            data-id-nv="${escapeHtml(staff.id_nv || "")}"
             data-name="${escapeHtml(staff.ten_nv)}"
           />
           ${escapeHtml(staff.ten_nv)}
@@ -2251,106 +2890,471 @@ async function loadStaffFromSupabase() {
       });
     }
 
+    function getStaffByIdNv(idNv) {
+      const code = normalizeKiotStaffId(idNv).toLowerCase();
+
+      return staffRows.find(function (staff) {
+        return normalizeKiotStaffId(staff.id_nv).toLowerCase() === code;
+      }) || null;
+    }
+
+    function getStaffNameByIdNv(idNv) {
+      const found = getStaffByIdNv(idNv);
+      return found ? found.ten_nv : idNv;
+    }
+
     function getStaffNameByCode(maNv) {
+      const code = String(maNv || "").trim().toLowerCase();
+
       const found = staffRows.find(function (staff) {
-        return String(staff.ma_nv || "").toLowerCase() === String(maNv || "").toLowerCase();
+        return String(staff.ma_nv || "").trim().toLowerCase() === code;
       });
 
       return found ? found.ten_nv : maNv;
     }
 
-    function renderStaffSelect(maKh, currentMaNv) {
-      const selectedValue = String(currentMaNv || "").trim();
+    function parseStaffIdList(value) {
+      if (Array.isArray(value)) {
+        return Array.from(new Set(value.map(function (item) {
+          return normalizeKiotStaffId(item);
+        }).filter(Boolean)));
+      }
 
-      let options = `<option value=""></option>`;
+      const raw = String(value || "").trim();
+      if (!raw) {
+        return [];
+      }
 
-      staffRows.forEach(function (staff) {
-        if (!staff.ma_nv) {
+      if (raw.startsWith("[") && raw.endsWith("]")) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            return parseStaffIdList(parsed);
+          }
+        } catch (error) {
+          console.warn("Không parse được mảng ma_nv:", error);
+        }
+      }
+
+      return Array.from(new Set(raw.split(/[;,]/).map(function (item) {
+        return normalizeKiotStaffId(item);
+      }).filter(Boolean)));
+    }
+
+    function getCustomerStaffIds(maKh) {
+      const key = String(maKh || "").trim();
+      const list = customerStaffMap[key] || [];
+
+      const idsFromMap = list
+        .map(function (item) {
+          return normalizeKiotStaffId(item.id_nv);
+        })
+        .filter(function (idNv) {
+          return idNv !== "";
+        });
+
+      if (idsFromMap.length > 0) {
+        return idsFromMap;
+      }
+
+      const customer = getCustomerByMaKh(key);
+      if (customer) {
+        const idsFromNhanVienIds = parseStaffIdList(customer.nhan_vien_ids);
+        if (idsFromNhanVienIds.length > 0) {
+          return idsFromNhanVienIds;
+        }
+
+        // Trường hợp tạm thời n8n đang ghi mảng ID vào kv_khachhang.ma_nv dạng chuỗi JSON.
+        const idsFromMaNv = parseStaffIdList(customer.ma_nv);
+        if (idsFromMaNv.length > 0) {
+          return idsFromMaNv;
+        }
+      }
+
+      return [];
+    }
+
+    function getCustomerStaffRows(maKh) {
+      const ids = getCustomerStaffIds(maKh);
+
+      return ids.map(function (idNv) {
+        const staff = getStaffByIdNv(idNv);
+
+        return {
+          id_nv: idNv,
+          ma_nv: staff ? staff.ma_nv : "",
+          ten_nv: staff ? staff.ten_nv : idNv
+        };
+      });
+    }
+
+    function readStaffAssignmentCache() {
+      try {
+        const raw = localStorage.getItem(STAFF_ASSIGNMENT_CACHE_KEY);
+        const obj = raw ? JSON.parse(raw) : {};
+        return obj && typeof obj === "object" ? obj : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    function writeStaffAssignmentCache(maKh, idNvList) {
+      const maKhText = String(maKh || "").trim();
+      if (!maKhText) {
+        return;
+      }
+
+      const cache = readStaffAssignmentCache();
+      const ids = Array.from(new Set((idNvList || [])
+        .map(function (idNv) { return normalizeKiotStaffId(idNv); })
+        .filter(Boolean)));
+
+      cache[maKhText] = {
+        ids: ids,
+        updated_at: new Date().toISOString()
+      };
+
+      try {
+        localStorage.setItem(STAFF_ASSIGNMENT_CACHE_KEY, JSON.stringify(cache));
+      } catch (error) {
+        console.warn("Không ghi được cache nhân viên phụ trách:", error);
+      }
+    }
+
+    function applyStaffAssignmentCache(maKhList) {
+      const cache = readStaffAssignmentCache();
+      const allowed = new Set((maKhList || []).map(function (maKh) {
+        return String(maKh || "").trim();
+      }).filter(Boolean));
+
+      Object.keys(cache).forEach(function (maKh) {
+        if (allowed.size > 0 && !allowed.has(maKh)) {
           return;
         }
 
-        const selected =
-          String(staff.ma_nv || "").toLowerCase() === String(selectedValue || "").toLowerCase()
-            ? "selected"
-            : "";
+        const ids = Array.from(new Set(((cache[maKh] && cache[maKh].ids) || [])
+          .map(function (idNv) { return normalizeKiotStaffId(idNv); })
+          .filter(Boolean)));
 
-        options += `
-          <option value="${escapeHtml(staff.ma_nv)}" ${selected}>
-            ${escapeHtml(staff.ten_nv)}
-          </option>
-        `;
+        customerStaffMap[maKh] = ids.map(function (idNv) {
+          return { id_nv: idNv, hoat_dong: true };
+        });
+      });
+    }
+
+    async function loadCustomerStaffAssignments(maKhList) {
+      customerStaffMap = {};
+
+      if (!Array.isArray(maKhList) || maKhList.length === 0) {
+        return;
+      }
+
+      const uniqueMaKhList = Array.from(new Set(maKhList.filter(Boolean).map(String)));
+
+      if (uniqueMaKhList.length === 0) {
+        return;
+      }
+
+      // Giữ lựa chọn vừa bấm trên giao diện trước, tránh bị render lại làm mất chip
+      // trong lúc Supabase/webhook còn đang xử lý.
+      applyStaffAssignmentCache(uniqueMaKhList);
+
+      if (!supabaseClient) {
+        customers.forEach(function (customer) {
+          customer.nhan_vien_ids = getCustomerStaffIds(customer.ma_kh);
+        });
+        return;
+      }
+
+      const { data, error } = await supabaseClient
+        .from(TABLE_KHACH_HANG_NHANVIEN)
+        .select("ma_kh, id_nv, hoat_dong")
+        .in("ma_kh", uniqueMaKhList)
+        .eq("hoat_dong", true);
+
+      if (error) {
+        console.warn("Không tải được bảng nhân viên phụ trách:", error);
+        return;
+      }
+
+      (data || []).forEach(function (row) {
+        const maKh = String(row.ma_kh || "").trim();
+        const idNv = normalizeKiotStaffId(row.id_nv);
+
+        if (!maKh || !idNv) {
+          return;
+        }
+
+        if (!customerStaffMap[maKh]) {
+          customerStaffMap[maKh] = [];
+        }
+
+        if (!customerStaffMap[maKh].some(function (item) { return normalizeKiotStaffId(item.id_nv) === idNv; })) {
+          customerStaffMap[maKh].push({
+            id_nv: idNv,
+            hoat_dong: row.hoat_dong !== false
+          });
+        }
       });
 
+      // Cache cục bộ là trạng thái người dùng vừa bấm. Nếu load/re-render xảy ra ngay
+      // sau thao tác chọn, cache sẽ giữ chip lại thay vì bị trả về rỗng.
+      applyStaffAssignmentCache(uniqueMaKhList);
+
+      customers.forEach(function (customer) {
+        customer.nhan_vien_ids = getCustomerStaffIds(customer.ma_kh);
+      });
+    }
+
+    function renderStaffChipContent(maKh) {
+      const rows = getCustomerStaffRows(maKh);
+
+      if (rows.length === 0) {
+        return `<span class="staff-chip-placeholder">+ Chọn nhân viên</span>`;
+      }
+
+      return rows.map(function (staff) {
+        return `
+          <span class="staff-chip" title="${escapeHtml(staff.ten_nv || staff.id_nv)}">
+            <span class="staff-chip-name">${escapeHtml(staff.ten_nv || staff.id_nv)}</span>
+            <button
+              type="button"
+              class="staff-chip-remove"
+              title="Bỏ nhân viên"
+              onclick="removeCustomerStaff('${escapeJs(maKh)}', '${escapeJs(staff.id_nv)}', event)"
+            >×</button>
+          </span>
+        `;
+      }).join("");
+    }
+
+    function updateCustomerStaffEditorUI(maKh) {
+      const maKhText = String(maKh || "").trim();
+      document.querySelectorAll(`.staff-chip-editor[data-ma-kh="${cssEscapeValue(maKhText)}"]`).forEach(function (editor) {
+        editor.innerHTML = renderStaffChipContent(maKhText);
+      });
+    }
+
+    function cssEscapeValue(value) {
+      if (window.CSS && typeof window.CSS.escape === "function") {
+        return window.CSS.escape(String(value || ""));
+      }
+
+      return String(value || "").replaceAll("\\", "\\\\").replaceAll('"', '\"');
+    }
+
+    function renderStaffChips(maKh) {
+      const content = renderStaffChipContent(maKh);
+
       return `
-        <select
-          class="staff-cell-select"
-          data-ma-kh="${escapeHtml(maKh || "")}"
-          data-old-ma-nv="${escapeHtml(selectedValue)}"
-          onchange="onStaffCellChanged(this)"
+        <div
+          class="staff-chip-editor"
+          data-ma-kh="${escapeHtml(maKh || "")}"          
+          onclick="openCustomerStaffPicker('${escapeJs(maKh)}', this, event)"
         >
-          ${options}
-        </select>
+          ${content}
+        </div>
       `;
     }
 
-    async function onStaffCellChanged(selectEl) {
-      const maKh = selectEl.dataset.maKh || "";
-      const oldMaNv = normalizeNullableMaNv(selectEl.dataset.oldMaNv);
-      const newMaNv = normalizeNullableMaNv(selectEl.value);
+    function closeCustomerStaffPicker() {
+      const oldPicker = document.getElementById("staffChipPicker");
+      if (oldPicker) {
+        oldPicker.remove();
+      }
 
-      if (!maKh) {
+      document.querySelectorAll(".staff-chip-editor.active").forEach(function (el) {
+        el.classList.remove("active");
+      });
+
+      activeStaffPicker = null;
+    }
+
+    function openCustomerStaffPicker(maKh, anchorEl, event) {
+      if (event) {
+        event.stopPropagation();
+      }
+
+      const currentIds = new Set(getCustomerStaffIds(maKh).map(function (idNv) {
+        return normalizeKiotStaffId(idNv);
+      }));
+
+      const availableStaff = staffRows.filter(function (staff) {
+        const idNv = normalizeKiotStaffId(staff.id_nv);
+        return idNv && !currentIds.has(idNv);
+      });
+
+      closeCustomerStaffPicker();
+      anchorEl.classList.add("active");
+
+      const picker = document.createElement("div");
+      picker.id = "staffChipPicker";
+      picker.className = "staff-chip-picker";
+
+      picker.innerHTML = `
+        <div class="staff-chip-picker-title">Thêm người phụ trách</div>
+        ${availableStaff.length === 0
+          ? `<div class="staff-chip-empty-option">Đã chọn hết nhân viên.</div>`
+          : availableStaff.map(function (staff) {
+              const idNv = normalizeKiotStaffId(staff.id_nv);
+              return `
+                <button
+                  type="button"
+                  class="staff-chip-option"
+                  data-id-nv="${escapeHtml(idNv)}"
+                >
+                  <span class="staff-chip-option-name">${escapeHtml(staff.ten_nv || idNv)}</span>
+                  <span>＋</span>
+                </button>
+              `;
+            }).join("")
+        }
+      `;
+
+      document.body.appendChild(picker);
+
+      const rect = anchorEl.getBoundingClientRect();
+      const left = Math.min(rect.left, window.innerWidth - 312);
+      const top = Math.min(rect.bottom + 6, window.innerHeight - 330);
+      picker.style.left = Math.max(8, left) + "px";
+      picker.style.top = Math.max(8, top) + "px";
+
+      picker.addEventListener("click", function (e) {
+        e.stopPropagation();
+      });
+
+      picker.querySelectorAll(".staff-chip-option").forEach(function (btn) {
+        btn.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+
+        btn.addEventListener("click", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const idNv = normalizeKiotStaffId(btn.dataset.idNv);
+          if (!idNv) {
+            return;
+          }
+
+          const selectedIds = getCustomerStaffIds(maKh)
+            .map(function (currentIdNv) {
+              return normalizeKiotStaffId(currentIdNv);
+            })
+            .filter(Boolean);
+
+          if (!selectedIds.includes(idNv)) {
+            selectedIds.push(idNv);
+          }
+
+          // Đúng kiểu Kiot: bấm 1 nhân viên là đóng menu ngay,
+          // chip hiện ngay trong ô; muốn thêm người nữa thì bấm lại ô nhân viên.
+          closeCustomerStaffPicker();
+
+          saveCustomerStaffAssignment(maKh, selectedIds).catch(function (error) {
+            console.error("Lỗi lưu người phụ trách:", error);
+            showNotice("Lỗi lưu người phụ trách: " + (error.message || JSON.stringify(error)), "error", 4500);
+          });
+        });
+      });
+
+      activeStaffPicker = {
+        ma_kh: maKh,
+        anchorEl: anchorEl,
+        pickerEl: picker
+      };
+    }
+
+    async function removeCustomerStaff(maKh, idNv, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+
+      const selectedIds = getCustomerStaffIds(maKh).filter(function (currentIdNv) {
+        return normalizeKiotStaffId(currentIdNv) !== normalizeKiotStaffId(idNv);
+      });
+
+      await saveCustomerStaffAssignment(maKh, selectedIds);
+    }
+
+    async function saveCustomerStaffAssignment(maKh, selectedIdNvList) {
+      const maKhText = String(maKh || "").trim();
+      const idNvList = Array.from(new Set((selectedIdNvList || [])
+        .map(function (idNv) { return normalizeKiotStaffId(idNv); })
+        .filter(Boolean)));
+
+      if (!maKhText) {
         return;
       }
 
-      if (String(oldMaNv || "") === String(newMaNv || "")) {
-        return;
+      const oldList = getCustomerStaffIds(maKhText).map(function (idNv) {
+        return normalizeKiotStaffId(idNv);
+      }).filter(Boolean);
+
+      const oldSet = new Set(oldList);
+      const newSet = new Set(idNvList);
+
+      const idsToAdd = idNvList.filter(function (idNv) {
+        return !oldSet.has(idNv);
+      });
+
+      const idsToDisable = oldList.filter(function (idNv) {
+        return !newSet.has(idNv);
+      });
+
+      const found = getCustomerByMaKh(maKhText);
+
+      // TẠM THỜI: chỉ cập nhật giao diện + cache, không lưu kv_khachhang_nhanvien.
+      // Mục tiêu hiện tại là bấm chọn nhân viên thì gửi webhook ngay cho n8n.
+      customerStaffMap[maKhText] = idNvList.map(function (idNv) {
+        return { id_nv: idNv, hoat_dong: true };
+      });
+
+      if (found) {
+        found.nhan_vien_ids = idNvList;
       }
 
-      if (!supabaseClient) {
-        showNotice("Supabase chưa sẵn sàng.", "error", 2500);
-        selectEl.value = oldMaNv || "";
-        return;
-      }
+      updateCustomerStaffEditorUI(maKhText);
+      writeStaffAssignmentCache(maKhText, idNvList);
 
-      selectEl.disabled = true;
-      selectEl.classList.add("changed");
-
+      // Tạm thời chỉ gửi webhook, bỏ toàn bộ thao tác insert/update/delete Supabase.
       try {
-        const { error } = await supabaseClient
-          .from(TABLE_KHACH_HANG)
-          .update({
-            ma_nv: newMaNv
-          })
-          .eq("ma_kh", maKh);
-
-        if (error) {
-          throw error;
-        }
-
-        const found = getCustomerByMaKh(maKh);
-        if (found) {
-          found.ma_nv = newMaNv;
-        }
-
-        selectEl.dataset.oldMaNv = newMaNv || "";
-        selectEl.classList.remove("changed");
-
         await sendCustomerWebhook(
-          "capnhat_nv",
-          maKh,
-          newMaNv,
-          { source: "staff_dropdown", field: "ma_nv" },
+          "upsert_khachhang_nhanvien",
+          maKhText,
+          null,
+          {
+            table: TABLE_KHACH_HANG_NHANVIEN,
+            source: "staff_chip_editor",
+            mode: "webhook_only",
+            skip_supabase: true,
+
+            // Theo yêu cầu tạm thời: trả mảng ID nhân viên KiotViet trong field ma_nv
+            // Ví dụ: ma_nv: ["1234546", "345678", "223456"]
+            ma_nv: idNvList,
+
+            // Giữ thêm field rõ nghĩa để n8n nào đang bắt id_nv_list vẫn không bị đứt.
+            id_nv_list: idNvList,
+            id_nv_added: idsToAdd,
+            id_nv_removed: idsToDisable
+          },
           { requireConversation: false, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
         );
 
-        showNotice("Đã cập nhật nhân viên cho " + maKh);
-      } catch (error) {
-        console.error("Lỗi cập nhật nhân viên:", error);
-        selectEl.value = oldMaNv || "";
-        showNotice("Lỗi cập nhật nhân viên: " + (error.message || JSON.stringify(error)), "error", 3500);
-      } finally {
-        selectEl.disabled = false;
-        selectEl.classList.remove("changed");
+        console.log("ĐÃ GỬI WEBHOOK NHÂN VIÊN:", {
+          ma_kh: maKhText,
+          ma_nv: idNvList,
+          id_nv_list: idNvList,
+          id_nv_added: idsToAdd,
+          id_nv_removed: idsToDisable
+        });
+
+        showNotice("Đã gửi webhook người phụ trách cho " + maKhText);
+      } catch (webhookError) {
+        console.warn("Webhook người phụ trách lỗi:", webhookError);
+        showNotice("Webhook người phụ trách lỗi: " + (webhookError.message || JSON.stringify(webhookError)), "error", 5000);
       }
     }
 
@@ -2499,6 +3503,7 @@ async function loadStaffFromSupabase() {
         };
       });
 
+      await loadCustomerStaffAssignments(customers.map(function (item) { return item.ma_kh; }));
       renderCustomers();
       setCustomerLoading(false);
     }
@@ -2558,6 +3563,7 @@ async function loadStaffFromSupabase() {
         };
       });
 
+      await loadCustomerStaffAssignments(customers.map(function (item) { return item.ma_kh; }));
       renderCustomers();
       setCustomerLoading(false);
     }
@@ -2693,6 +3699,7 @@ async function loadStaffFromSupabase() {
       localStorage.removeItem(LOGIN_STORAGE_KEY);
       currentUser = null;
       customers = [];
+      customerStaffMap = {};
       totalRows = 0;
       currentPage = 1;
       pendingStaffChanges = {};
@@ -2862,15 +3869,45 @@ async function loadStaffFromSupabase() {
       staffDropdownMenu.classList.toggle("hidden");
     });
 
-    document.addEventListener("click", function (event) {
-      const isClickInside =
-        staffDropdownBtn.contains(event.target) ||
-        staffDropdownMenu.contains(event.target);
+    document.addEventListener("pointerdown", function (event) {
+      const target = event.target;
 
-      if (!isClickInside) {
+      const clickedInsideStaffFilter =
+        staffDropdownBtn.contains(target) ||
+        staffDropdownMenu.contains(target);
+
+      if (!clickedInsideStaffFilter) {
         staffDropdownMenu.classList.add("hidden");
       }
-    });
+
+      const picker = document.getElementById("staffChipPicker");
+      const clickedInsideStaffChipPicker =
+        (picker && picker.contains(target)) ||
+        (target.closest && target.closest(".staff-chip-editor"));
+
+      if (!clickedInsideStaffChipPicker) {
+        closeCustomerStaffPicker();
+      }
+
+      const isAssignStaffDropdownOpen =
+        zaloChatPopover &&
+        !zaloChatPopover.classList.contains("hidden") &&
+        zaloChatPopover.classList.contains("assign-staff-dropdown");
+
+      const clickedInsideAssignStaffDropdown =
+        target.closest && target.closest(".assign-staff-dropdown");
+
+      const clickedAssignButton =
+        target.closest && target.closest(".assign-btn");
+
+      if (
+        isAssignStaffDropdownOpen &&
+        !clickedInsideAssignStaffDropdown &&
+        !clickedAssignButton
+      ) {
+        closeZaloChat();
+      }
+    }, true);
 
     document.querySelectorAll(".sortable").forEach(function (th) {
       th.addEventListener("click", function () {
@@ -2962,19 +3999,15 @@ async function loadStaffFromSupabase() {
       const staffList = getSelectedStaffList();
       let list = customers;
 
-      const dataHasStaffField = list.some(function (item) {
-        return String(item.ma_nv || "").trim() !== "";
-      });
-
-
       const filtered = list.filter(function (item) {
-        const maNv = String(item.ma_nv || "").toLowerCase();
+        const assignedIds = (item.nhan_vien_ids && item.nhan_vien_ids.length > 0)
+          ? item.nhan_vien_ids.map(function (idNv) { return normalizeKiotStaffId(idNv).toLowerCase(); })
+          : getCustomerStaffIds(item.ma_kh).map(function (idNv) { return normalizeKiotStaffId(idNv).toLowerCase(); });
 
         const matchStaff =
-          !dataHasStaffField ||
           staffList.length === 0 ||
-          staffList.some(function (staff) {
-            return maNv === staff;
+          staffList.some(function (staffIdNv) {
+            return assignedIds.includes(normalizeKiotStaffId(staffIdNv).toLowerCase());
           });
 
         return matchStaff;
@@ -3015,18 +4048,24 @@ async function loadStaffFromSupabase() {
       }
 
       customerBody.innerHTML = filtered.map(function (item) {
+        const rowStaffList = getCustomerStaffRows(item.ma_kh || "");
+        const staffTitle = rowStaffList
+          .map(function (staff) { return staff.ten_nv || staff.id_nv; })
+          .join(", ");
+        const assignBtnClass = rowStaffList.length > 1 ? "assign-btn has-staff-dropdown" : "assign-btn";
+
         return `
           <tr>
             <td title="${escapeHtml(item.ma_kh || "")}">${escapeHtml(item.ma_kh || "")}</td>
             <td title="${escapeHtml(item.ten_kh || "")}">${escapeHtml(item.ten_kh || "")}</td>
             <td title="${escapeHtml(item.sdt || "")}">${escapeHtml(item.sdt || "")}</td>
             <td title="${formatMoney(item.cong_no)}">${formatMoney(item.cong_no)}</td>
-            <td title="${escapeHtml(item.ma_nv || "")}">
-              ${renderStaffSelect(item.ma_kh || "", item.ma_nv || "")}
+            <td title="${escapeHtml(staffTitle)}">
+              ${renderStaffChips(item.ma_kh || "")}
             </td>
             <td>
               <div class="row-actions">
-                <button class="assign-btn" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', this)">
+                <button class="${assignBtnClass}" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', this)">
                   Gán KH
                 </button>
                 ${item.conversation_id ? `
