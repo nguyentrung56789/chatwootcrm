@@ -1870,38 +1870,42 @@
       return raw;
     }
 
-    function markAssignButtonDone(buttonEl, row, conversationId, contactId, selectedIdNv) {
-      const maKh = row && row.ma_kh ? String(row.ma_kh || "").trim() : "";
-      const idNv = normalizeKiotStaffId(selectedIdNv || (buttonEl && buttonEl.dataset ? buttonEl.dataset.selectedIdNv : ""));
-
+    function markAssignButtonDone(buttonEl, row, conversationId, contactId) {
       if (row) {
-        // Giữ lại trên object khách để tương thích code cũ, nhưng trạng thái chính nằm ở kv_khachhang_nhanvien.
         row.conversation_id = conversationId || row.conversation_id || null;
         row.chatwoot_contact_id = contactId || row.chatwoot_contact_id || null;
       }
 
-      // Cập nhật local map theo đúng cặp ma_kh + id_nv để render lại nút Gán KH/Zalo ngay lập tức.
-      if (maKh && idNv) {
-        if (!customerStaffMap[maKh]) {
-          customerStaffMap[maKh] = [];
-        }
-
-        let found = customerStaffMap[maKh].find(function (item) {
-          return normalizeKiotStaffId(item.id_nv) === idNv;
-        });
-
-        if (!found) {
-          found = { id_nv: idNv, hoat_dong: true };
-          customerStaffMap[maKh].push(found);
-        }
-
-        found.conversation_id = conversationId ? String(conversationId) : null;
-        found.chatwoot_contact_id = contactId ? String(contactId) : null;
-        found.hoat_dong = true;
+      if (!buttonEl) {
+        return;
       }
 
-      // Render lại để: 1 NV đã gán thì ẩn nút; thêm NV mới chưa gán thì nút sáng lại.
-      renderCustomers();
+      // Gán xong chỉ làm mờ/khóa nút Gán KH, không ẩn nút.
+      buttonEl.disabled = true;
+      buttonEl.textContent = "Đã gán";
+      buttonEl.title = "Mã KH này đã được gán hội thoại";
+
+      // Nếu gán được conversation_id thì bật/tạo nút Zalo chat ngay trên dòng đó.
+      const tr = buttonEl.closest("tr");
+      const rowActions = tr ? tr.querySelector(".row-actions") : null;
+      let zaloBtn = tr ? tr.querySelector(".zalo-chat-btn") : null;
+
+      if (conversationId && !zaloBtn && rowActions && row && row.ma_kh) {
+        zaloBtn = document.createElement("button");
+        zaloBtn.type = "button";
+        zaloBtn.className = "zalo-chat-btn";
+        zaloBtn.textContent = "Zalo chat";
+        zaloBtn.title = "Zalo chat";
+        zaloBtn.onclick = function () {
+          openZaloChat(row.ma_kh, zaloBtn);
+        };
+        rowActions.appendChild(zaloBtn);
+      }
+
+      if (zaloBtn && conversationId) {
+        zaloBtn.disabled = false;
+        zaloBtn.title = "Zalo chat";
+      }
     }
 
     function normalizeConversationId(value) {
@@ -1909,194 +1913,92 @@
       return text ? text : null;
     }
 
-    function isActiveAssignmentRow(row) {
-      // kv_khachhang_nhanvien có thể để hoat_dong = true hoặc null.
-      // Chỉ coi là không hoạt động khi giá trị đúng bằng false.
-      return row && row.hoat_dong !== false;
-    }
-
-    function normalizeDbConversationNumber(value) {
-      const cid = normalizeConversationId(value);
-      if (!cid) {
-        return null;
-      }
-
-      // Cột conversation_id trong bảng kv_khachhang_nhanvien của anh đang là float8.
-      // Vì vậy query bằng Number để Supabase/Postgres match chắc hơn.
-      const cleaned = cid.replace(/\.0$/, "");
-      if (/^\d+$/.test(cleaned)) {
-        const n = Number(cleaned);
-        return Number.isFinite(n) ? n : null;
-      }
-
-      return null;
-    }
-
-    function isSameConversationId(a, b) {
-      const na = normalizeDbConversationNumber(a);
-      const nb = normalizeDbConversationNumber(b);
-
-      if (na !== null && nb !== null) {
-        return na === nb;
-      }
-
-      return normalizeConversationId(a) === normalizeConversationId(b);
-    }
-
-    function addUniqueConversationCandidate(list, value) {
-      const cid = normalizeConversationId(value);
-      if (!cid) {
-        return;
-      }
-
-      if (!list.some(function (item) { return isSameConversationId(item, cid); })) {
-        list.push(cid);
-      }
-    }
-
-    function getCurrentConversationIdCandidates(extraConversationId) {
-      const list = [];
-
-      addUniqueConversationCandidate(list, extraConversationId);
-      addUniqueConversationCandidate(list, getQueryParam("conversation_id"));
-      addUniqueConversationCandidate(list, chatwootFallbackConversationId);
-      addUniqueConversationCandidate(list, window.__CHATWOOT_CONVERSATION_ID__);
-
-      const ctx = chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null;
-      const c = ctx && ctx.conversation ? ctx.conversation : null;
-
-      // Chatwoot Dashboard App có thể trả nhiều trường ID khác nhau.
-      // Khi kiểm tra trùng, phải thử đủ ứng viên để không lọt hội thoại đã gán.
-      if (ctx) {
-        addUniqueConversationCandidate(list, ctx.conversation_id);
-        addUniqueConversationCandidate(list, ctx.id);
-        if (ctx.message) {
-          addUniqueConversationCandidate(list, ctx.message.conversation_id);
-        }
-      }
-
-      if (c) {
-        addUniqueConversationCandidate(list, c.conversation_id);
-        addUniqueConversationCandidate(list, c.id);
-        addUniqueConversationCandidate(list, c.display_id);
-      }
-
-      if (chatwootContextRaw) {
-        const raw = String(chatwootContextRaw || "");
-        const regexList = [
-          /["']conversation_id["']\s*:\s*["']?(\d+)["']?/ig,
-          /conversation_id=(\d+)/ig,
-          /["']conversation["']\s*:\s*\{[\s\S]{0,1200}?["']id["']\s*:\s*["']?(\d+)["']?/ig
-        ];
-
-        regexList.forEach(function (regex) {
-          let match;
-          while ((match = regex.exec(raw)) !== null) {
-            addUniqueConversationCandidate(list, match[1]);
-          }
-        });
-      }
-
-      return list;
-    }
-
-    function normalizeAssignmentRow(row) {
-      if (!row) {
-        return null;
-      }
-
-      const staff = getStaffByIdNv(row.id_nv);
-
-      return {
-        id: row.id || null,
-        ma_kh: row.ma_kh || "",
-        id_nv: normalizeKiotStaffId(row.id_nv),
-        ten_nv: staff ? staff.ten_nv : String(row.id_nv || ""),
-        conversation_id: normalizeConversationId(row.conversation_id),
-        chatwoot_contact_id: row.chatwoot_contact_id || null,
-        hoat_dong: row.hoat_dong
-      };
-    }
-
     async function findAssignmentByConversationId(conversationId) {
-      if (!supabaseClient) {
-        console.warn("Bỏ qua kiểm tra trùng hội thoại: chưa có supabaseClient");
+      const cid = normalizeConversationId(conversationId);
+
+      if (!cid || !supabaseClient) {
         return null;
       }
 
-      const candidates = getCurrentConversationIdCandidates(conversationId);
-      const numberCandidates = candidates
-        .map(normalizeDbConversationNumber)
-        .filter(function (value) { return value !== null; });
+      const selectCols = "id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong";
 
-      const uniqueNumberCandidates = Array.from(new Set(numberCandidates));
+      function normalizeAssignmentRow(row) {
+        if (!row) {
+          return null;
+        }
 
-      if (uniqueNumberCandidates.length === 0) {
-        console.warn("Bỏ qua kiểm tra trùng hội thoại: không có conversation_id hợp lệ", {
-          input: conversationId,
-          candidates: candidates
-        });
-        return null;
+        // Chỉ bỏ qua dòng đã tắt rõ ràng. Nếu hoat_dong = null/undefined vẫn coi là còn hiệu lực.
+        if (row.hoat_dong === false) {
+          return null;
+        }
+
+        const staff = getStaffByIdNv(row.id_nv);
+
+        return {
+          id: row.id,
+          ma_kh: String(row.ma_kh || "").trim(),
+          id_nv: normalizeKiotStaffId(row.id_nv),
+          ten_nv: staff ? staff.ten_nv : String(row.id_nv || ""),
+          conversation_id: normalizeConversationId(row.conversation_id),
+          chatwoot_contact_id: row.chatwoot_contact_id || null,
+          hoat_dong: row.hoat_dong
+        };
+      }
+
+      async function queryByConversationId(value) {
+        const { data, error } = await supabaseClient
+          .from(TABLE_KHACH_HANG_NHANVIEN)
+          .select(selectCols)
+          .eq("conversation_id", value)
+          .limit(10);
+
+        if (error) {
+          console.warn("Không kiểm tra được conversation_id trong kv_khachhang_nhanvien:", {
+            conversation_id: value,
+            error: error
+          });
+          return [];
+        }
+
+        return Array.isArray(data) ? data : [];
       }
 
       try {
-        let data = [];
-        let error = null;
+        // Bảng của anh đang để conversation_id kiểu số/float8, còn Chatwoot trả về chuỗi.
+        // Vì vậy thử query cả dạng chuỗi và dạng số để không bị lọt trùng.
+        const candidateValues = [cid];
+        const numericCid = Number(cid);
 
-        // Query chính: kiểm tra đúng bảng kv_khachhang_nhanvien bằng conversation_id float8.
-        const query = supabaseClient
-          .from(TABLE_KHACH_HANG_NHANVIEN)
-          .select("id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong");
+        if (Number.isFinite(numericCid)) {
+          candidateValues.push(numericCid);
+        }
 
-        const response = uniqueNumberCandidates.length === 1
-          ? await query.eq("conversation_id", uniqueNumberCandidates[0]).limit(20)
-          : await query.in("conversation_id", uniqueNumberCandidates).limit(20);
+        const seenKeys = new Set();
+        let rows = [];
 
-        data = response.data || [];
-        error = response.error;
+        for (const value of candidateValues) {
+          const key = String(value);
+          if (seenKeys.has(key)) continue;
+          seenKeys.add(key);
+
+          const foundRows = await queryByConversationId(value);
+          rows = rows.concat(foundRows);
+        }
 
         console.log("KIỂM TRA TRÙNG HỘI THOẠI TRONG kv_khachhang_nhanvien:", {
-          input_conversation_id: conversationId,
-          candidates: candidates,
-          numberCandidates: uniqueNumberCandidates,
-          rows: data,
-          error: error
+          conversation_id: cid,
+          candidate_values: candidateValues,
+          rows: rows
         });
 
-        if (error) {
-          console.warn("Query chính lỗi khi kiểm tra conversation_id. Thử fallback lọc JS:", error);
-
-          const fallback = await supabaseClient
-            .from(TABLE_KHACH_HANG_NHANVIEN)
-            .select("id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong")
-            .not("conversation_id", "is", null)
-            .limit(1000);
-
-          data = fallback.data || [];
-          error = fallback.error;
-
-          console.log("FALLBACK KIỂM TRA TRÙNG HỘI THOẠI kv_khachhang_nhanvien:", {
-            rows: data,
-            error: error
-          });
-
-          if (error) {
-            console.warn("Không kiểm tra được conversation_id trong kv_khachhang_nhanvien:", error);
-            return null;
+        for (const row of rows) {
+          const normalized = normalizeAssignmentRow(row);
+          if (normalized && normalizeConversationId(normalized.conversation_id)) {
+            return normalized;
           }
         }
 
-        const activeRow = (data || []).find(function (row) {
-          return isActiveAssignmentRow(row) && candidates.some(function (cid) {
-            return isSameConversationId(row.conversation_id, cid);
-          });
-        });
-
-        const normalized = normalizeAssignmentRow(activeRow);
-
-        console.log("KẾT QUẢ TRÙNG HỘI THOẠI kv_khachhang_nhanvien:", normalized);
-
-        return normalized;
+        return null;
       } catch (error) {
         console.warn("Lỗi khi kiểm tra conversation_id trong kv_khachhang_nhanvien:", error);
         return null;
@@ -2108,13 +2010,6 @@
       const cleanIdNv = normalizeKiotStaffId(idNv);
 
       if (!cleanMaKh || !cleanIdNv || !supabaseClient) {
-        console.warn("Bỏ qua kiểm tra cặp ma_kh + id_nv: thiếu dữ liệu", {
-          maKh: maKh,
-          idNv: idNv,
-          cleanMaKh: cleanMaKh,
-          cleanIdNv: cleanIdNv,
-          hasSupabase: !!supabaseClient
-        });
         return null;
       }
 
@@ -2124,25 +2019,36 @@
           .select("id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong")
           .eq("ma_kh", cleanMaKh)
           .eq("id_nv", cleanIdNv)
-          .limit(20);
-
-        console.log("KIỂM TRA CẶP ma_kh + id_nv TRONG kv_khachhang_nhanvien:", {
-          ma_kh: cleanMaKh,
-          id_nv: cleanIdNv,
-          rows: data,
-          error: error
-        });
+          .limit(10);
 
         if (error) {
           console.warn("Không kiểm tra được ma_kh + id_nv trong kv_khachhang_nhanvien:", error);
           return null;
         }
 
-        const activeRow = (data || []).find(function (row) {
-          return isActiveAssignmentRow(row);
-        });
+        if (!data || data.length === 0) {
+          return null;
+        }
 
-        return normalizeAssignmentRow(activeRow);
+        const activeRow = data.find(function (row) {
+          return row && row.hoat_dong !== false;
+        }) || null;
+
+        if (!activeRow) {
+          return null;
+        }
+
+        const staff = getStaffByIdNv(activeRow.id_nv);
+
+        return {
+          id: activeRow.id,
+          ma_kh: String(activeRow.ma_kh || "").trim(),
+          id_nv: normalizeKiotStaffId(activeRow.id_nv),
+          ten_nv: staff ? staff.ten_nv : String(activeRow.id_nv || ""),
+          conversation_id: normalizeConversationId(activeRow.conversation_id),
+          chatwoot_contact_id: activeRow.chatwoot_contact_id || null,
+          hoat_dong: activeRow.hoat_dong
+        };
       } catch (error) {
         console.warn("Lỗi khi kiểm tra ma_kh + id_nv trong kv_khachhang_nhanvien:", error);
         return null;
@@ -2173,12 +2079,9 @@
       return getCustomerStaffRows(maKh)
         .map(function (staff) {
           return {
-            id: staff.id || null,
             id_nv: normalizeKiotStaffId(staff.id_nv),
             ma_nv: String(staff.ma_nv || "").trim(),
-            ten_nv: String(staff.ten_nv || staff.id_nv || "").trim(),
-            conversation_id: normalizeConversationId(staff.conversation_id),
-            chatwoot_contact_id: staff.chatwoot_contact_id || null
+            ten_nv: String(staff.ten_nv || staff.id_nv || "").trim()
           };
         })
         .filter(function (staff) {
@@ -2255,40 +2158,24 @@
         return;
       }
 
-      // Chỉ cần gán cho những nhân viên chưa có conversation_id trong kv_khachhang_nhanvien.
-      // Vì vậy: 1 NV đã gán -> ẩn nút; thêm NV mới -> nút sáng lại để gán cho NV mới đó.
-      const unassignedStaffList = staffList.filter(function (staff) {
-        return !normalizeConversationId(staff.conversation_id);
-      });
-
-      if (unassignedStaffList.length === 0) {
-        showNotice("Tất cả nhân viên của khách này đã được gán hội thoại.", "ok", 2200);
-        renderCustomers();
-        return;
-      }
-
       let selectedStaff = null;
 
-      if (unassignedStaffList.length === 1) {
-        selectedStaff = unassignedStaffList[0];
+      if (staffList.length === 1) {
+        selectedStaff = staffList[0];
       } else {
         if (buttonEl) {
           buttonEl.textContent = "Chọn NV...";
         }
 
-        selectedStaff = await chooseStaffForAssignCustomer(row, unassignedStaffList, buttonEl);
+        selectedStaff = await chooseStaffForAssignCustomer(row, staffList, buttonEl);
 
         if (!selectedStaff) {
           if (buttonEl) {
             buttonEl.disabled = false;
-            buttonEl.textContent = staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
+            buttonEl.textContent = "Gán KH";
           }
           return;
         }
-      }
-
-      if (buttonEl && selectedStaff) {
-        buttonEl.dataset.selectedIdNv = normalizeKiotStaffId(selectedStaff.id_nv);
       }
 
       await runAssignCustomerToChatwoot(maKh, buttonEl, selectedStaff, staffList);
@@ -2338,7 +2225,7 @@
         // Lớp chặn 1: kiểm tra đúng cặp ma_kh + id_nv trong kv_khachhang_nhanvien.
         const selectedAssignment = await findAssignmentByCustomerAndStaff(maKh, selectedIdNv);
 
-        if (selectedAssignment && selectedAssignment.conversation_id && !isSameConversationId(selectedAssignment.conversation_id, conversationId)) {
+        if (selectedAssignment && selectedAssignment.conversation_id) {
           const ok = await showAssignConfirm(
             `Mã KH <b>${escapeHtml(maKh)}</b> với nhân viên
              <b>${escapeHtml(selectedTenNv || selectedAssignment.ten_nv || selectedIdNv)}</b>
@@ -2361,33 +2248,41 @@
           selectedAssignmentId = selectedAssignment.id || null;
         }
 
-        // Lớp chặn 2: kiểm tra hội thoại hiện tại trong kv_khachhang_nhanvien, không kiểm tra kv_khachhang nữa.
+        // Lớp chặn 2: kiểm tra hội thoại hiện tại trong kv_khachhang_nhanvien.
+        // Nếu conversation_id đã tồn tại và ma_kh/id_nv khác dòng đang gán,
+        // nghĩa là hội thoại này đã gán vào khách hàng/nhân viên khác.
         const existingAssignment = await findAssignmentByConversationId(conversationId);
-
-        console.log("KẾT QUẢ KIỂM TRA TRÙNG HỘI THOẠI TRƯỚC KHI GỬI WEBHOOK:", {
-          conversation_id_dang_gan: conversationId,
-          candidates: getCurrentConversationIdCandidates(conversationId),
-          ma_kh_dang_gan: maKh,
-          selected_id_nv: selectedIdNv,
-          existingAssignment: existingAssignment
-        });
 
         if (existingAssignment && normalizeConversationId(existingAssignment.conversation_id)) {
           const existingMaKh = String(existingAssignment.ma_kh || "").trim();
           const existingIdNv = normalizeKiotStaffId(existingAssignment.id_nv);
           const existingTenNv = String(existingAssignment.ten_nv || existingIdNv || "").trim();
+
+          const currentMaKh = String(maKh || "").trim();
           const isSameAssignment =
-            existingMaKh === String(maKh || "").trim() &&
+            existingMaKh === currentMaKh &&
             existingIdNv === selectedIdNv;
+
+          console.log("KẾT QUẢ CHECK TRÙNG HỘI THOẠI:", {
+            conversation_id: conversationId,
+            existing_ma_kh: existingMaKh,
+            existing_id_nv: existingIdNv,
+            selected_ma_kh: currentMaKh,
+            selected_id_nv: selectedIdNv,
+            is_same_assignment: isSameAssignment,
+            existing_assignment: existingAssignment
+          });
 
           if (!isSameAssignment) {
             const ok = await showAssignConfirm(
               `Hội thoại <b>${escapeHtml(conversationId)}</b> đã được gán cho:<br>
                Mã KH: <b>${escapeHtml(existingMaKh || "Không rõ")}</b><br>
                Nhân viên: <b>${escapeHtml(existingTenNv || "Không rõ")}</b><br><br>
-               Bạn có muốn chuyển sang mã KH <b>${escapeHtml(maKh)}</b>
-               / nhân viên <b>${escapeHtml(selectedTenNv || selectedIdNv)}</b> không?`,
-              "Hội thoại đã được gán"
+               Nếu bấm <b>OK</b>, hệ thống sẽ gửi action sửa hội thoại đã có
+               sang mã KH <b>${escapeHtml(currentMaKh)}</b>
+               / nhân viên <b>${escapeHtml(selectedTenNv || selectedIdNv)}</b>.<br>
+               Nếu bấm <b>Cancel</b>, code sẽ dừng và không gửi webhook.`,
+              "Hội thoại đã được gán vào khách hàng khác"
             );
 
             if (!ok) {
@@ -2401,6 +2296,7 @@
             action = "sua_gan_makh";
             oldMaKh = existingMaKh || null;
             oldIdNv = existingIdNv || null;
+            oldConversationId = existingAssignment.conversation_id || conversationId;
             existingAssignmentId = existingAssignment.id || null;
           }
         }
@@ -2421,6 +2317,8 @@
             existing_assignment_id: existingAssignmentId,
             checked_table: TABLE_KHACH_HANG_NHANVIEN,
             checked_existing_ma_kh: oldMaKh,
+            action_reason: action === "sua_gan_makh" ? "sua_hoi_thoai_da_co" : "gan_hoi_thoai_moi",
+            conflict_type: existingAssignmentId ? "conversation_id_da_gan_khach_hang_khac" : "",
 
             // Danh sách toàn bộ nhân viên phụ trách khách hàng.
             id_nv_list: allIdNvList,
@@ -2438,7 +2336,7 @@
         const result = response && response.result ? response.result : {};
 
         // Cập nhật lại dữ liệu trên dòng hiện tại để Zalo chat dùng được ngay sau khi gán.
-        markAssignButtonDone(buttonEl, row, conversationId, contactId, selectedIdNv);
+        markAssignButtonDone(buttonEl, row, conversationId, contactId);
 
         showNotice(
           getWebhookDisplayMessage(
@@ -2453,7 +2351,7 @@
 
         if (buttonEl) {
           buttonEl.disabled = false;
-          buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
+          buttonEl.textContent = "Gán KH";
         }
 
         showNotice("Lỗi gán KH: " + (error.message || JSON.stringify(error)), "error", 3500);
@@ -2579,8 +2477,8 @@
     function openZaloChat(maKh, buttonEl) {
       const customer = getCustomerByMaKh(maKh);
 
-      if (!customer) {
-        showNotice("Không tìm thấy khách hàng.", "error", 2200);
+      if (!customer || !customer.conversation_id) {
+        showNotice("Khách này chưa có hội thoại Zalo.", "error", 2200);
         return;
       }
 
@@ -2589,9 +2487,7 @@
           return {
             id_nv: normalizeKiotStaffId(staff.id_nv),
             ma_nv: String(staff.ma_nv || "").trim(),
-            ten_nv: String(staff.ten_nv || staff.id_nv || "").trim(),
-            conversation_id: normalizeConversationId(staff.conversation_id || customer.conversation_id),
-            chatwoot_contact_id: staff.chatwoot_contact_id || customer.chatwoot_contact_id || null
+            ten_nv: String(staff.ten_nv || staff.id_nv || "").trim()
           };
         })
         .filter(function (staff) {
@@ -2603,21 +2499,12 @@
         return;
       }
 
-      const staffWithConversation = staffList.filter(function (staff) {
-        return normalizeConversationId(staff.conversation_id);
-      });
-
-      if (staffWithConversation.length === 0) {
-        showNotice("Khách này chưa có hội thoại Zalo được gán cho nhân viên.", "error", 2600);
+      if (staffList.length === 1) {
+        openZaloChatWithSender(customer, staffList, staffList[0], buttonEl);
         return;
       }
 
-      if (staffWithConversation.length === 1) {
-        openZaloChatWithSender(customer, staffWithConversation, staffWithConversation[0], buttonEl);
-        return;
-      }
-
-      openZaloSenderChooser(customer, staffWithConversation, buttonEl);
+      openZaloSenderChooser(customer, staffList, buttonEl);
     }
 
     function openZaloSenderChooser(customer, staffList, buttonEl) {
@@ -2690,8 +2577,8 @@
         ma_kh: customer.ma_kh || "",
         ten_kh: customer.ten_kh || "",
         sdt: customer.sdt || "",
-        conversation_id: normalizeConversationId(selectedStaff.conversation_id || customer.conversation_id),
-        chatwoot_contact_id: selectedStaff.chatwoot_contact_id || customer.chatwoot_contact_id || null,
+        conversation_id: customer.conversation_id,
+        chatwoot_contact_id: customer.chatwoot_contact_id || null,
 
         // Danh sách toàn bộ nhân viên phụ trách dòng khách này.
         ma_nv: allIdNvList,
@@ -3163,41 +3050,15 @@
     }
 
     function getCustomerStaffRows(maKh) {
-      const key = String(maKh || "").trim();
-      const list = customerStaffMap[key] || [];
-
-      if (list.length > 0) {
-        return list.map(function (item) {
-          const idNv = normalizeKiotStaffId(item.id_nv);
-          const staff = getStaffByIdNv(idNv);
-
-          return {
-            id: item.id || null,
-            id_nv: idNv,
-            ma_nv: staff ? staff.ma_nv : String(item.ma_nv || ""),
-            ten_nv: staff ? staff.ten_nv : String(item.ten_nv || idNv),
-            conversation_id: normalizeConversationId(item.conversation_id),
-            chatwoot_contact_id: item.chatwoot_contact_id || null,
-            hoat_dong: item.hoat_dong !== false
-          };
-        }).filter(function (item) {
-          return item.id_nv !== "" && item.hoat_dong !== false;
-        });
-      }
-
       const ids = getCustomerStaffIds(maKh);
 
       return ids.map(function (idNv) {
-        const cleanIdNv = normalizeKiotStaffId(idNv);
-        const staff = getStaffByIdNv(cleanIdNv);
+        const staff = getStaffByIdNv(idNv);
 
         return {
-          id_nv: cleanIdNv,
+          id_nv: idNv,
           ma_nv: staff ? staff.ma_nv : "",
-          ten_nv: staff ? staff.ten_nv : cleanIdNv,
-          conversation_id: null,
-          chatwoot_contact_id: null,
-          hoat_dong: true
+          ten_nv: staff ? staff.ten_nv : idNv
         };
       });
     }
@@ -3282,7 +3143,7 @@
 
       const { data, error } = await supabaseClient
         .from(TABLE_KHACH_HANG_NHANVIEN)
-        .select("id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong")
+        .select("ma_kh, id_nv, hoat_dong")
         .in("ma_kh", uniqueMaKhList)
         .eq("hoat_dong", true);
 
@@ -3305,10 +3166,7 @@
 
         if (!customerStaffMap[maKh].some(function (item) { return normalizeKiotStaffId(item.id_nv) === idNv; })) {
           customerStaffMap[maKh].push({
-            id: row.id || null,
             id_nv: idNv,
-            conversation_id: normalizeConversationId(row.conversation_id),
-            chatwoot_contact_id: row.chatwoot_contact_id || null,
             hoat_dong: row.hoat_dong !== false
           });
         }
@@ -4269,29 +4127,7 @@
         const staffTitle = rowStaffList
           .map(function (staff) { return staff.ten_nv || staff.id_nv; })
           .join(", ");
-
-        const unassignedStaffList = rowStaffList.filter(function (staff) {
-          return !normalizeConversationId(staff.conversation_id);
-        });
-
-        const hasAnyConversation = rowStaffList.some(function (staff) {
-          return !!normalizeConversationId(staff.conversation_id);
-        }) || !!normalizeConversationId(item.conversation_id);
-
-        let assignButtonHtml = "";
-
-        // 1 nhân viên đã gán rồi: ẩn nút Gán KH.
-        // Khi thêm nhân viên mới chưa có conversation_id: nút sẽ sáng lại để gán cho nhân viên mới.
-        if (rowStaffList.length === 0 || unassignedStaffList.length > 0) {
-          const assignBtnClass = rowStaffList.length > 1 ? "assign-btn has-staff-dropdown" : "assign-btn";
-          const assignBtnText = rowStaffList.length > 1 ? "Chọn NV..." : "Gán KH";
-
-          assignButtonHtml = `
-            <button class="${assignBtnClass}" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', this)">
-              ${assignBtnText}
-            </button>
-          `;
-        }
+        const assignBtnClass = rowStaffList.length > 1 ? "assign-btn has-staff-dropdown" : "assign-btn";
 
         return `
           <tr>
@@ -4304,8 +4140,10 @@
             </td>
             <td>
               <div class="row-actions">
-                ${assignButtonHtml}
-                ${hasAnyConversation ? `
+                <button class="${assignBtnClass}" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', this)">
+                  Gán KH
+                </button>
+                ${item.conversation_id ? `
                   <button
                     class="zalo-chat-btn"
                     title="Zalo chat"
