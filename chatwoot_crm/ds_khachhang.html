@@ -2186,15 +2186,18 @@
       const selectedIdNv = normalizeKiotStaffId(selectedStaff && selectedStaff.id_nv);
       const selectedTenNv = String((selectedStaff && (selectedStaff.ten_nv || selectedStaff.id_nv)) || "").trim();
       const selectedMaNv = String((selectedStaff && selectedStaff.ma_nv) || "").trim();
-      const maNv = selectedIdNv || normalizeNullableMaNv(row.ma_nv);
 
-      const allIdNvList = (staffList || []).map(function (staff) {
+      const allIdNvList = Array.from(new Set((staffList || []).map(function (staff) {
         return normalizeKiotStaffId(staff.id_nv);
-      }).filter(Boolean);
+      }).filter(Boolean)));
 
       const allTenNvList = (staffList || []).map(function (staff) {
         return staff.ten_nv || staff.id_nv;
       }).filter(Boolean);
+
+      // ma_nv chính gửi webhook phải là TOÀN BỘ nhân viên đang gán cho khách.
+      // selected_id_nv mới là nhân viên được chọn để gán/sửa hội thoại lần này.
+      const maNv = allIdNvList;
 
       if (buttonEl) {
         buttonEl.disabled = true;
@@ -2321,6 +2324,8 @@
             conflict_type: existingAssignmentId ? "conversation_id_da_gan_khach_hang_khac" : "",
 
             // Danh sách toàn bộ nhân viên phụ trách khách hàng.
+            // Ghi đè ma_nv ở buildWebhookPayload để n8n nhận đủ nhiều nhân viên.
+            ma_nv: allIdNvList,
             id_nv_list: allIdNvList,
             ma_nv_list: allIdNvList,
             ten_nv_list: allTenNvList,
