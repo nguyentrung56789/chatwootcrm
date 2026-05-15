@@ -2171,39 +2171,43 @@
       }
     }
 
-    async function loadStaffFromSupabase() {
-      if (!supabaseClient) {
-        return;
-      }
+async function loadStaffFromSupabase() {
+  if (!supabaseClient) {
+    return;
+  }
 
-      const { data, error } = await supabaseClient
-        .from(TABLE_NHAN_VIEN)
-        .select("ma_nv, ten_nv, hoat_dong")
-        .eq("hoat_dong", true)
-        .order("ten_nv", { ascending: true });
+  const { data, error } = await supabaseClient
+    .from(TABLE_NHAN_VIEN)
+    .select("id_nv, ten_nv, hoat_dong")
+    .eq("hoat_dong", true)
+    .not("id_nv", "is", null)
+    .order("ten_nv", { ascending: true });
 
-      if (error) {
-        console.error("Lỗi tải nhân viên:", error);
-        return;
-      }
+  if (error) {
+    console.error("Lỗi tải nhân viên:", error);
+    return;
+  }
 
-      staffRows = (data || [])
-        .map(function (item) {
-          return {
-            ma_nv: String(item.ma_nv || "").trim(),
-            ten_nv: String(item.ten_nv || item.ma_nv || "").trim()
-          };
-        })
-        .filter(function (item) {
-          return item.ma_nv !== "";
-        });
+  staffRows = (data || [])
+    .map(function (item) {
+      return {
+        // Vẫn để tên biến là ma_nv để đỡ phải sửa nhiều code phía dưới,
+        // nhưng giá trị thực tế là id_nv của KiotViet.
+        ma_nv: String(item.id_nv || "").trim(),
+        id_nv: String(item.id_nv || "").trim(),
+        ten_nv: String(item.ten_nv || item.id_nv || "").trim()
+      };
+    })
+    .filter(function (item) {
+      return item.id_nv !== "";
+    });
 
-      renderStaffDropdown();
+  renderStaffDropdown();
 
-      if (customers.length > 0) {
-        renderCustomers();
-      }
-    }
+  if (customers.length > 0) {
+    renderCustomers();
+  }
+}
 
     function renderStaffDropdown() {
       staffDropdownMenu.innerHTML = `
