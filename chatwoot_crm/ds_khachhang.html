@@ -4051,20 +4051,23 @@
         closeCustomerStaffPicker();
       }
 
-      const isAssignStaffDropdownOpen =
+      const isZaloPopoverOpen =
         zaloChatPopover &&
-        !zaloChatPopover.classList.contains("hidden") &&
-        zaloChatPopover.classList.contains("assign-staff-dropdown");
+        !zaloChatPopover.classList.contains("hidden");
 
-      const clickedInsideAssignStaffDropdown =
-        target.closest && target.closest(".assign-staff-dropdown");
+      const clickedInsideZaloPopover =
+        zaloChatPopover && zaloChatPopover.contains(target);
+
+      const clickedZaloChatButton =
+        target.closest && target.closest(".zalo-chat-btn");
 
       const clickedAssignButton =
         target.closest && target.closest(".assign-btn");
 
       if (
-        isAssignStaffDropdownOpen &&
-        !clickedInsideAssignStaffDropdown &&
+        isZaloPopoverOpen &&
+        !clickedInsideZaloPopover &&
+        !clickedZaloChatButton &&
         !clickedAssignButton
       ) {
         closeZaloChat();
