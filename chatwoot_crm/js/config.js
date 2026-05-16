@@ -3,9 +3,10 @@
 // 1) CẤU HÌNH THEO ỨNG DỤNG
 window.COD_CONFIGS = {
   index: { table: "kv_nhan_vien" },
-  kh:   { table: "kv_khachhang" },
-  dh: { table: "don_hang" },
-  dhct:   { table: "don_hang_chitiet" }
+  kh:    { table: "kv_khachhang" },
+  khnv:  { table: "kv_khachhang_nhanvien" },
+  dh:    { table: "don_hang" },
+  dhct:  { table: "don_hang_chitiet" }
 };
 
 // 2) HÀM TRỘN CẤU HÌNH
