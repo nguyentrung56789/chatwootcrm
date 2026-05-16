@@ -1326,11 +1326,26 @@
   </div>
 
   <script>
+    function getConfiguredTableName(configName, fallbackName) {
+      try {
+        if (typeof window.getConfig === "function") {
+          const cfg = window.getConfig(configName);
+          if (cfg && typeof cfg.table === "string" && cfg.table.trim()) {
+            return cfg.table.trim();
+          }
+        }
+      } catch (error) {
+        console.warn("Không đọc được cấu hình bảng " + configName + ":", error);
+      }
+
+      return fallbackName;
+    }
+
     const LOGIN_STORAGE_KEY = "chatwoot_crm_user";
     const STAFF_ASSIGNMENT_CACHE_KEY = "ds_khachhang_staff_assignment_cache_v2";
     const TABLE_NHAN_VIEN = "kv_nhan_vien";
     const TABLE_KHACH_HANG = "kv_khachhang";
-    const TABLE_KHACH_HANG_NHANVIEN = "kv_khachhang_nhanvien";
+    const TABLE_KHACH_HANG_NHANVIEN = getConfiguredTableName("khnv", "kv_khachhang_nhanvien");
     const UPDATE_CHATWOOT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
     const ZALO_CHAT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/my-zalo-chatwoot";
 
@@ -1625,49 +1640,10 @@
       });
     }
 
-    function extractConversationIdFromUrlText(text) {
-      const raw = String(text || "");
-      if (!raw) {
-        return null;
-      }
-
-      const patterns = [
-        /\/conversations\/(\d+)/i,
-        /[?&]conversation_id=(\d+)/i,
-        /[?&]chatwoot_conversation_id=(\d+)/i,
-        /["']conversation_id["']\s*:\s*["']?(\d+)["']?/i
-      ];
-
-      for (const regex of patterns) {
-        const match = raw.match(regex);
-        if (match && match[1]) {
-          return String(match[1]);
-        }
-      }
-
-      return null;
-    }
-
-    function getConversationIdFromBrowserContext() {
-      return (
-        extractConversationIdFromUrlText(window.location.href) ||
-        extractConversationIdFromUrlText(document.referrer) ||
-        extractConversationIdFromUrlText(chatwootContextRaw) ||
-        null
-      );
-    }
-
     function getCurrentConversationId() {
       const queryId = getQueryParam("conversation_id");
       if (queryId) {
         return String(queryId);
-      }
-
-      // Ưu tiên URL thật của Chatwoot cha: /app/accounts/1/conversations/12022.
-      // Trường này ổn định hơn appContext khi dashboard app nằm trong iframe.
-      const browserContextId = getConversationIdFromBrowserContext();
-      if (browserContextId) {
-        return String(browserContextId);
       }
 
       const ctx = chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null;
@@ -1693,6 +1669,11 @@
 
       if (window.__CHATWOOT_CONVERSATION_ID__) {
         return String(window.__CHATWOOT_CONVERSATION_ID__);
+      }
+
+      if (chatwootContextRaw) {
+        const rawId = extractFirstMatch(chatwootContextRaw, /["']conversation_id["']\s*:\s*["']?(\d+)["']?/i);
+        if (rawId) return String(rawId);
       }
 
       return null;
@@ -1724,7 +1705,7 @@
       return raw ? raw : null;
     }
 
-    function showNotice(message, type = "ok", timeoutMs = 30000) {
+    function showNotice(message, type = "ok", timeoutMs = 10000) {
       noticeBox.classList.remove("hidden");
       noticeBox.innerHTML = escapeHtml(message);
       noticeBox.style.whiteSpace = "pre-wrap";
@@ -1753,8 +1734,8 @@
     }
 
 
-    async function showAssignDebugStep(message, type = "ok", delayMs = 3000) {
-      showNotice("[DEBUG GÁN KH] " + message, type, 30000);
+    async function showAssignDebugStep(message, type = "ok", delayMs = 850) {
+      showNotice("[DEBUG GÁN KH] " + message, type, 10000);
       console.log("[DEBUG GÁN KH]", message);
       if (delayMs > 0) {
         await new Promise(function (resolve) {
@@ -1976,19 +1957,13 @@
       const cid = normalizeConversationId(conversationId);
 
       if (!cid) {
-        await showAssignDebugStep("Không có conversation_id để kiểm tra.", "error", 3000);
+        await showAssignDebugStep("Không có conversation_id để kiểm tra.", "error", 900);
         return [];
       }
 
       if (!SUPABASE_REST_URL || !SUPABASE_REST_ANON) {
-        await showAssignDebugStep("Thiếu cấu hình Supabase REST URL/ANON. Dừng gán để tránh trùng hộp thoại.", "error", 3000);
+        await showAssignDebugStep("Thiếu cấu hình Supabase REST URL/ANON nên không thể kiểm tra trùng. Dừng gán.", "error", 1200);
         throw new Error("Thiếu SUPABASE_REST_URL hoặc SUPABASE_REST_ANON khi kiểm tra conversation_id.");
-      }
-
-      const numericConversationId = Number(cid);
-      if (!Number.isFinite(numericConversationId)) {
-        await showAssignDebugStep("conversation_id không hợp lệ: " + cid, "error", 3000);
-        throw new Error("conversation_id không hợp lệ: " + cid);
       }
 
       const url =
@@ -1997,22 +1972,15 @@
         TABLE_KHACH_HANG_NHANVIEN +
         "?select=id,ma_kh,id_nv,conversation_id,chatwoot_contact_id,hoat_dong" +
         "&conversation_id=eq." +
-        encodeURIComponent(String(numericConversationId)) +
+        encodeURIComponent(cid) +
         "&limit=100";
 
-      await showAssignDebugStep(
-        "Bắt đầu HTTP check table kv_khachhang_nhanvien\nconversation_id = " + numericConversationId,
-        "ok",
-        3000
-      );
+      await showAssignDebugStep("Bắt đầu kiểm tra table kv_khachhang_nhanvien với conversation_id = " + cid, "ok", 900);
 
-      console.log("[DEBUG GÁN KH] HTTP CHECK URL:", url);
-
-      await showAssignDebugStep(
-        "URL check Supabase:\n" + url,
-        "ok",
-        3000
-      );
+      console.log("HTTP CHECK TẤT CẢ DÒNG TRÙNG HỘP THOẠI kv_khachhang_nhanvien:", {
+        conversation_id: cid,
+        url: url
+      });
 
       const resp = await fetch(url, {
         method: "GET",
@@ -2024,39 +1992,38 @@
       });
 
       const text = await resp.text();
-      console.log("[DEBUG GÁN KH] HTTP CHECK STATUS:", resp.status);
-      console.log("[DEBUG GÁN KH] HTTP CHECK RESPONSE:", text);
 
       if (!resp.ok) {
-        await showAssignDebugStep(
-          "HTTP check conversation_id lỗi " + resp.status + ": " + text,
-          "error",
-          350
-        );
+        console.warn("HTTP check conversation_id lỗi:", resp.status, text);
+        await showAssignDebugStep("HTTP check Supabase lỗi " + resp.status + ". Dừng gán để tránh trùng hộp thoại.", "error", 1500);
         throw new Error("HTTP check conversation_id lỗi: " + resp.status + " - " + text);
       }
 
       let rows = [];
+
       try {
         rows = text ? JSON.parse(text) : [];
       } catch (error) {
-        await showAssignDebugStep("Không parse được JSON Supabase. Dừng gán.", "error", 3000);
-        throw new Error("Không parse được kết quả HTTP check conversation_id: " + text);
+        console.warn("Không parse được kết quả HTTP check conversation_id:", text);
+        await showAssignDebugStep("Không đọc được kết quả Supabase. Dừng gán để tránh trùng hộp thoại.", "error", 1500);
+        throw new Error("Không parse được kết quả HTTP check conversation_id.");
       }
 
-      const activeRows = (rows || [])
+      await showAssignDebugStep("HTTP check trả về " + rows.length + " dòng có conversation_id này.", rows.length > 0 ? "error" : "ok", 1000);
+
+      const activeRows = rows
         .filter(function (row) {
           return row && row.hoat_dong !== false;
         })
         .map(function (row) {
           const staff = getStaffByIdNv(row.id_nv);
-          const assignmentId = String(row.id || makeAssignmentId(row.ma_kh, row.id_nv) || "").trim();
+          const assignmentId = row.id || makeAssignmentId(row.ma_kh, row.id_nv);
 
           return {
             id: assignmentId,
-            ma_kh: String(row.ma_kh || "").trim(),
+            ma_kh: row.ma_kh || "",
             id_nv: normalizeKiotStaffId(row.id_nv),
-            ten_nv: staff ? staff.ten_nv : String(row.id_nv || ""),
+            ten_nv: row.ten_nv || (staff ? staff.ten_nv : String(row.id_nv || "")),
             conversation_id: normalizeConversationId(row.conversation_id),
             chatwoot_contact_id: row.chatwoot_contact_id || null,
             hoat_dong: row.hoat_dong,
@@ -2064,12 +2031,15 @@
           };
         });
 
-      await showAssignDebugStep(
-        "HTTP check trả về " + activeRows.length + " dòng active.\nID tìm thấy: " +
-          (activeRows.length ? activeRows.map(function (row) { return row.id; }).join(", ") : "không có"),
-        activeRows.length > 0 ? "error" : "ok",
-        3000
-      );
+      if (rows.length !== activeRows.length) {
+        await showAssignDebugStep("Bỏ qua " + (rows.length - activeRows.length) + " dòng hoat_dong=false. Còn " + activeRows.length + " dòng active.", "ok", 900);
+      }
+
+      console.log("KẾT QUẢ HTTP CHECK TẤT CẢ DÒNG TRÙNG HỘP THOẠI:", {
+        conversation_id: cid,
+        so_dong: activeRows.length,
+        rows: activeRows
+      });
 
       return activeRows;
     }
@@ -2279,14 +2249,6 @@
         const conversationId = normalizeConversationId(getCurrentConversationId());
         const contactId = getCurrentContactId();
 
-        await showAssignDebugStep(
-          "conversation_id đang dùng để check = " + conversationId +
-            "\nwindow.location = " + window.location.href +
-            "\nreferrer = " + (document.referrer || "không có"),
-          "ok",
-          650
-        );
-
         if (!conversationId) {
           throw new Error("Chưa lấy được conversation_id từ Chatwoot appContext.");
         }
@@ -2350,57 +2312,61 @@
         }
 
         // Lớp chặn 2: kiểm tra TẤT CẢ dòng đang dùng conversation_id hiện tại.
-        // Quy tắc: conversation_id không được gắn cho ID khác.
-        // ID hợp lệ của dòng đang gán = ma_kh + "_" + selected_id_nv.
+        // Không được lấy 1 dòng đầu tiên, vì 1 conversation_id có thể đang bị trùng nhiều dòng.
+        // Nếu có bất kỳ dòng nào có id khác newAssignmentId => hội thoại đã gán cho cặp KH + NV khác.
         const existingAssignments = await findAssignmentsByConversationId(conversationId);
+
+        if (existingAssignments.length > 0) {
+          await showAssignDebugStep(
+            "Tìm thấy hộp thoại " + conversationId + " trong bảng. Danh sách ID: " +
+              existingAssignments.map(function (item) {
+                return item.id || makeAssignmentId(item.ma_kh, item.id_nv);
+              }).join(", "),
+            "error",
+            1500
+          );
+        } else {
+          await showAssignDebugStep("Không tìm thấy hộp thoại này trong bảng. Có thể gán mới.", "ok", 900);
+        }
 
         const conflictRows = existingAssignments.filter(function (item) {
           const oldId = String(item.id || makeAssignmentId(item.ma_kh, item.id_nv) || "").trim();
           return oldId && oldId !== newAssignmentId;
         });
 
-        if (existingAssignments.length > 0) {
+        if (conflictRows.length > 0) {
           await showAssignDebugStep(
-            "Tìm thấy conversation_id trong kv_khachhang_nhanvien.\n" +
-              "conversation_id = " + conversationId + "\n" +
-              "new_id = " + newAssignmentId + "\n" +
-              "Danh sách ID đang giữ: " + existingAssignments.map(function (item) {
+            "Tìm thấy ID khác new_id. new_id = " + newAssignmentId +
+              " / ID khác = " + conflictRows.map(function (item) {
                 return item.id || makeAssignmentId(item.ma_kh, item.id_nv);
               }).join(", "),
-            conflictRows.length > 0 ? "error" : "ok",
-            350
+            "error",
+            1800
           );
-        } else {
-          await showAssignDebugStep(
-            "Không tìm thấy conversation_id trong kv_khachhang_nhanvien. Có thể gán mới.\n" +
-              "conversation_id = " + conversationId + "\n" +
-              "new_id = " + newAssignmentId,
-            "ok",
-            350
-          );
+        } else if (existingAssignments.length > 0) {
+          await showAssignDebugStep("Có hộp thoại nhưng tất cả ID đều giống new_id. Đây là sửa chính dòng hiện tại.", "ok", 1200);
         }
+
+        console.log("SO SÁNH TẤT CẢ ID ĐANG DÙNG HỘP THOẠI:", {
+          conversation_id: conversationId,
+          new_id: newAssignmentId,
+          total_rows: existingAssignments.length,
+          conflict_rows: conflictRows
+        });
 
         if (conflictRows.length > 0) {
           const conflict = conflictRows[0];
           const existingMaKh = String(conflict.ma_kh || "").trim();
           const existingIdNv = normalizeKiotStaffId(conflict.id_nv);
           const existingTenNv = String(conflict.ten_nv || existingIdNv || "").trim();
-          const existingId = String(conflict.id || makeAssignmentId(existingMaKh, existingIdNv) || "").trim();
+          const existingId = conflict.id || makeAssignmentId(existingMaKh, existingIdNv);
 
-          const conflictListHtml = conflictRows.slice(0, 8).map(function (row) {
+          const conflictListHtml = conflictRows.slice(0, 5).map(function (row) {
             const rowId = row.id || makeAssignmentId(row.ma_kh, row.id_nv);
             return `• <b>${escapeHtml(rowId || "Không rõ")}</b> — ${escapeHtml(row.ma_kh || "")}/${escapeHtml(row.ten_nv || row.id_nv || "")}`;
           }).join("<br>");
 
-          await showAssignDebugStep(
-            "Tìm thấy ID khác new_id. Bắt buộc hỏi trước khi gán.\n" +
-              "new_id = " + newAssignmentId + "\n" +
-              "ID khác = " + conflictRows.map(function (item) {
-                return item.id || makeAssignmentId(item.ma_kh, item.id_nv);
-              }).join(", "),
-            "error",
-            350
-          );
+          await showAssignDebugStep("Chuẩn bị mở popup xác nhận vì hộp thoại bị trùng với ID khác.", "error", 900);
 
           const ok = await showAssignConfirm(
             `Cuộc hội thoại <b>${escapeHtml(conversationId)}</b> đã được gán cho dòng khác rồi.<br><br>
@@ -2418,11 +2384,11 @@
               buttonEl.disabled = false;
               buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
             }
-            await showAssignDebugStep("Anh bấm Cancel: dừng code, không gửi webhook.", "error", 3000);
+            await showAssignDebugStep("Anh bấm Cancel: dừng code, không gửi webhook.", "error", 1000);
             return;
           }
 
-          await showAssignDebugStep("Anh bấm OK: đi tiếp với action sửa gán mã KH.", "ok", 350);
+          await showAssignDebugStep("Anh bấm OK: đi tiếp với action sửa gán mã KH.", "ok", 1000);
 
           action = "sua_gan_makh";
           actionReason = "sua_hoi_thoai_da_co";
@@ -2438,7 +2404,7 @@
           existingAssignmentId = existingAssignments[0].id || newAssignmentId;
         }
 
-        await showAssignDebugStep("Chuẩn bị gửi webhook với action = " + action, "ok", 3000);
+        await showAssignDebugStep("Chuẩn bị gửi webhook với action = " + action, "ok", 900);
 
         const response = await sendCustomerWebhook(
           action,
@@ -2496,7 +2462,7 @@
           buttonEl.textContent = "Gán KH";
         }
 
-        showNotice("Lỗi gán KH: " + (error.message || JSON.stringify(error)), "error", 30000);
+        showNotice("Lỗi gán KH: " + (error.message || JSON.stringify(error)), "error", 3500);
       }
     }
 
@@ -2577,7 +2543,7 @@
         closeConfirmAssignModal();
       } catch (error) {
         console.error("Lỗi đổi mã KH:", error);
-        showNotice("Lỗi đổi mã KH: " + (error.message || JSON.stringify(error)), "error", 30000);
+        showNotice("Lỗi đổi mã KH: " + (error.message || JSON.stringify(error)), "error", 3500);
       } finally {
         confirmAssignOkBtn.disabled = false;
         confirmAssignOkBtn.textContent = "Đồng ý thay đổi";
@@ -2928,7 +2894,7 @@
         closeZaloChat();
       } catch (error) {
         console.error("Lỗi gửi Zalo chat:", error);
-        showNotice("Lỗi gửi Zalo chat: " + (error.message || JSON.stringify(error)), "error", 30000);
+        showNotice("Lỗi gửi Zalo chat: " + (error.message || JSON.stringify(error)), "error", 3500);
       } finally {
         zaloChatSendBtn.disabled = false;
         zaloChatSendBtn.textContent = "Gửi";
@@ -3032,7 +2998,7 @@
         console.error("Lỗi tải nhân viên:", error);
 
         if (typeof showNotice === "function") {
-          showNotice("Lỗi tải nhân viên: " + (error.message || JSON.stringify(error)), "error", 30000);
+          showNotice("Lỗi tải nhân viên: " + (error.message || JSON.stringify(error)), "error", 3500);
         }
 
         return;
@@ -3644,7 +3610,7 @@
         showNotice("Đã làm mới dữ liệu.");
       } catch (error) {
         console.error("Lỗi làm mới:", error);
-        showNotice("Lỗi làm mới: " + (error.message || JSON.stringify(error)), "error", 30000);
+        showNotice("Lỗi làm mới: " + (error.message || JSON.stringify(error)), "error", 3500);
       } finally {
         if (refreshBtn) {
           refreshBtn.disabled = false;
