@@ -2222,6 +2222,11 @@
 
     async function runAssignCustomerToChatwoot(maKh, buttonEl, selectedStaff, staffList) {
       const row = getCustomerByMaKh(maKh) || { ma_kh: maKh };
+
+      // Lấy ma_kh từ dòng kv_khachhang đang bấm gán.
+      const cleanMaKh = String((row && row.ma_kh) || maKh || "").trim();
+
+      // Lấy id nhân viên từ nhân viên phụ trách/nhân viên vừa chọn của khách đó.
       const selectedIdNv = normalizeKiotStaffId(selectedStaff && selectedStaff.id_nv);
       const selectedTenNv = String((selectedStaff && (selectedStaff.ten_nv || selectedStaff.id_nv)) || "").trim();
       const selectedMaNv = String((selectedStaff && selectedStaff.ma_nv) || "").trim();
@@ -2234,10 +2239,9 @@
         return staff.ten_nv || staff.id_nv;
       }).filter(Boolean);
 
-      // ma_nv/id_nv_list là toàn bộ nhân viên của khách.
-      // selected_id_nv mới là nhân viên được chọn cho hộp thoại hiện tại.
-      const maNv = allIdNvList;
-      const newAssignmentId = makeAssignmentId(maKh, selectedIdNv);
+      // ID chuẩn để upsert/check trong kv_khachhang_nhanvien:
+      // id = ma_kh + "_" + selected_id_nv
+      const newAssignmentId = makeAssignmentId(cleanMaKh, selectedIdNv);
 
       if (buttonEl) {
         buttonEl.disabled = true;
@@ -2247,8 +2251,13 @@
       try {
         await waitForChatwootContext();
 
+        // conversation_id luôn lấy từ Chatwoot hiện tại.
         const conversationId = normalizeConversationId(getCurrentConversationId());
         const contactId = getCurrentContactId();
+
+        if (!cleanMaKh) {
+          throw new Error("Không lấy được ma_kh từ dòng khách hàng đang bấm gán.");
+        }
 
         if (!conversationId) {
           throw new Error("Chưa lấy được conversation_id từ Chatwoot appContext.");
@@ -2258,10 +2267,14 @@
           throw new Error("Chưa chọn được nhân viên phụ trách để gán KH.");
         }
 
+        if (!newAssignmentId) {
+          throw new Error("Không tạo được ID gán KH theo dạng ma_kh_id_nv.");
+        }
+
         await showAssignDebugStep(
-          "Đang gán ID mới: " + newAssignmentId + " / conversation_id: " + conversationId,
+          "ID chuẩn sẽ gán: " + newAssignmentId + " / ma_kh: " + cleanMaKh + " / selected_id_nv: " + selectedIdNv + " / conversation_id: " + conversationId,
           "ok",
-          1000
+          900
         );
 
         let action = "gan_makh";
@@ -2269,89 +2282,47 @@
         let oldMaKh = null;
         let oldIdNv = null;
         let existingAssignmentId = null;
-        let selectedAssignmentId = null;
+        let selectedAssignmentId = newAssignmentId;
         let oldAssignmentId = null;
         let actionReason = "gan_hoi_thoai_moi";
         let conflictType = "";
 
-        // Lớp chặn 1: kiểm tra đúng cặp ma_kh + id_nv trong kv_khachhang_nhanvien.
-        // Nếu cặp này đã có chính conversation_id hiện tại thì coi là sửa chính dòng đó.
-        // Nếu cặp này đang có conversation_id khác thì hỏi trước khi đổi hộp thoại cho cặp này.
-        const selectedAssignment = await findAssignmentByCustomerAndStaff(maKh, selectedIdNv);
-
-        if (selectedAssignment && selectedAssignment.conversation_id) {
-          selectedAssignmentId = selectedAssignment.id || makeAssignmentId(maKh, selectedIdNv);
-
-          if (normalizeConversationId(selectedAssignment.conversation_id) === conversationId) {
-            action = "sua_gan_makh";
-            actionReason = "sua_chinh_id_hien_tai";
-          } else {
-            const ok = await showAssignConfirm(
-              `Mã KH <b>${escapeHtml(maKh)}</b> với nhân viên
-               <b>${escapeHtml(selectedTenNv || selectedAssignment.ten_nv || selectedIdNv)}</b>
-               đang có hộp thoại khác:
-               <b>${escapeHtml(selectedAssignment.conversation_id)}</b>.<br><br>
-               Bạn có muốn đổi sang hộp thoại hiện tại
-               <b>${escapeHtml(conversationId)}</b> không?`,
-              "Cặp KH + nhân viên đã có hộp thoại"
-            );
-
-            if (!ok) {
-              if (buttonEl) {
-                buttonEl.disabled = false;
-                buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
-              }
-              return;
-            }
-
-            action = "sua_gan_makh";
-            actionReason = "sua_hoi_thoai_cua_chinh_id";
-            conflictType = "ma_kh_id_nv_da_co_hoi_thoai_khac";
-            oldConversationId = selectedAssignment.conversation_id;
-            oldAssignmentId = selectedAssignmentId;
-          }
-        }
-
-        // Lớp chặn 2: kiểm tra TẤT CẢ dòng đang dùng conversation_id hiện tại.
-        // Không được lấy 1 dòng đầu tiên, vì 1 conversation_id có thể đang bị trùng nhiều dòng.
-        // Nếu có bất kỳ dòng nào có id khác newAssignmentId => hội thoại đã gán cho cặp KH + NV khác.
+        // BƯỚC QUAN TRỌNG THEO Ý ANH:
+        // Query bằng TABLE_KHACH_HANG_NHANVIEN, chỉ lọc conversation_id = conversation_id từ Chatwoot.
         const existingAssignments = await findAssignmentsByConversationId(conversationId);
 
         if (existingAssignments.length > 0) {
           await showAssignDebugStep(
-            "Tìm thấy hộp thoại " + conversationId + " trong bảng. Danh sách ID: " +
+            "Tìm thấy " + existingAssignments.length + " dòng trong " + TABLE_KHACH_HANG_NHANVIEN +
+              " có conversation_id = " + conversationId + ". Danh sách ID: " +
               existingAssignments.map(function (item) {
                 return item.id || makeAssignmentId(item.ma_kh, item.id_nv);
               }).join(", "),
             "error",
-            1500
+            1300
           );
         } else {
-          await showAssignDebugStep("Không tìm thấy hộp thoại này trong bảng. Có thể gán mới.", "ok", 900);
+          await showAssignDebugStep(
+            "Không tìm thấy dòng nào trong " + TABLE_KHACH_HANG_NHANVIEN +
+              " có conversation_id = " + conversationId + ". Có thể gán mới.",
+            "ok",
+            900
+          );
         }
 
+        // Nếu có bất kỳ dòng nào đang giữ conversation_id nhưng ID khác id_moi => popup.
         const conflictRows = existingAssignments.filter(function (item) {
           const oldId = String(item.id || makeAssignmentId(item.ma_kh, item.id_nv) || "").trim();
           return oldId && oldId !== newAssignmentId;
         });
 
-        if (conflictRows.length > 0) {
-          await showAssignDebugStep(
-            "Tìm thấy ID khác new_id. new_id = " + newAssignmentId +
-              " / ID khác = " + conflictRows.map(function (item) {
-                return item.id || makeAssignmentId(item.ma_kh, item.id_nv);
-              }).join(", "),
-            "error",
-            1800
-          );
-        } else if (existingAssignments.length > 0) {
-          await showAssignDebugStep("Có hộp thoại nhưng tất cả ID đều giống new_id. Đây là sửa chính dòng hiện tại.", "ok", 1200);
-        }
-
-        console.log("SO SÁNH TẤT CẢ ID ĐANG DÙNG HỘP THOẠI:", {
+        console.log("KIỂM TRA TRÙNG HỘI THOẠI THEO ID CHUẨN:", {
+          table: TABLE_KHACH_HANG_NHANVIEN,
           conversation_id: conversationId,
+          ma_kh_from_kv_khachhang: cleanMaKh,
+          selected_id_nv: selectedIdNv,
           new_id: newAssignmentId,
-          total_rows: existingAssignments.length,
+          total_rows_by_conversation_id: existingAssignments.length,
           conflict_rows: conflictRows
         });
 
@@ -2362,21 +2333,27 @@
           const existingTenNv = String(conflict.ten_nv || existingIdNv || "").trim();
           const existingId = conflict.id || makeAssignmentId(existingMaKh, existingIdNv);
 
-          const conflictListHtml = conflictRows.slice(0, 5).map(function (row) {
-            const rowId = row.id || makeAssignmentId(row.ma_kh, row.id_nv);
-            return `• <b>${escapeHtml(rowId || "Không rõ")}</b> — ${escapeHtml(row.ma_kh || "")}/${escapeHtml(row.ten_nv || row.id_nv || "")}`;
+          const conflictListHtml = conflictRows.slice(0, 5).map(function (item) {
+            const rowId = item.id || makeAssignmentId(item.ma_kh, item.id_nv);
+            return `• <b>${escapeHtml(rowId || "Không rõ")}</b> — KH: ${escapeHtml(item.ma_kh || "")} / NV: ${escapeHtml(item.ten_nv || item.id_nv || "")}`;
           }).join("<br>");
 
-          await showAssignDebugStep("Chuẩn bị mở popup xác nhận vì hộp thoại bị trùng với ID khác.", "error", 900);
+          await showAssignDebugStep(
+            "Có ID khác " + newAssignmentId + " đang giữ conversation_id này. Mở popup xác nhận.",
+            "error",
+            900
+          );
 
           const ok = await showAssignConfirm(
-            `Cuộc hội thoại <b>${escapeHtml(conversationId)}</b> đã được gán cho dòng khác rồi.<br><br>
+            `Cuộc hội thoại <b>${escapeHtml(conversationId)}</b> đã được gán cho dòng khác trong bảng
+             <b>${escapeHtml(TABLE_KHACH_HANG_NHANVIEN)}</b>.<br><br>
              Dòng đang giữ hội thoại:<br>
              ${conflictListHtml}<br><br>
-             Bạn có muốn chuyển sang:<br>
-             ID mới: <b>${escapeHtml(newAssignmentId)}</b><br>
-             Mã KH: <b>${escapeHtml(maKh)}</b><br>
-             Nhân viên: <b>${escapeHtml(selectedTenNv || selectedIdNv)}</b> không?`,
+             ID mới sẽ gán:<br>
+             <b>${escapeHtml(newAssignmentId)}</b><br>
+             Mã KH: <b>${escapeHtml(cleanMaKh)}</b><br>
+             Nhân viên: <b>${escapeHtml(selectedTenNv || selectedIdNv)}</b><br><br>
+             Anh có muốn chuyển hội thoại này sang ID mới không?`,
             "Hội thoại đã được gán"
           );
 
@@ -2385,32 +2362,39 @@
               buttonEl.disabled = false;
               buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
             }
-            await showAssignDebugStep("Anh bấm Cancel: dừng code, không gửi webhook.", "error", 1000);
+
+            await showAssignDebugStep("Anh bấm Cancel: dừng code, không gửi webhook.", "error", 900);
             return;
           }
 
-          await showAssignDebugStep("Anh bấm OK: đi tiếp với action sửa gán mã KH.", "ok", 1000);
-
           action = "sua_gan_makh";
-          actionReason = "sua_hoi_thoai_da_co";
+          actionReason = "sua_hoi_thoai_da_co_id_khac";
           conflictType = "conversation_id_da_gan_cho_id_khac";
           oldMaKh = existingMaKh || null;
           oldIdNv = existingIdNv || null;
           oldAssignmentId = existingId || null;
           existingAssignmentId = existingId || null;
+
+          await showAssignDebugStep("Anh bấm OK: tiếp tục gửi webhook sửa gán hội thoại.", "ok", 900);
         } else if (existingAssignments.length > 0) {
-          // Có conversation_id nhưng tất cả dòng đều là chính newAssignmentId => đang sửa chính dòng đó.
+          // Có dòng cùng conversation_id nhưng ID đều giống ID mới => sửa/ghi lại chính dòng hiện tại.
           action = "sua_gan_makh";
           actionReason = "sua_chinh_id_hien_tai";
           existingAssignmentId = existingAssignments[0].id || newAssignmentId;
+
+          await showAssignDebugStep(
+            "conversation_id đã tồn tại nhưng ID trùng ID mới. Đây là chính dòng hiện tại: " + newAssignmentId,
+            "ok",
+            900
+          );
         }
 
-        await showAssignDebugStep("Chuẩn bị gửi webhook với action = " + action, "ok", 900);
+        await showAssignDebugStep("Chuẩn bị gửi webhook với action = " + action, "ok", 700);
 
         const response = await sendCustomerWebhook(
           action,
-          maKh,
-          maNv,
+          cleanMaKh,
+          selectedIdNv,
           {
             source: "assign_customer_button",
             conversation_id: conversationId,
@@ -2422,6 +2406,7 @@
             selected_assignment_id: selectedAssignmentId,
             existing_assignment_id: existingAssignmentId,
             checked_table: TABLE_KHACH_HANG_NHANVIEN,
+            checked_conversation_id: conversationId,
             checked_existing_ma_kh: oldMaKh,
             old_assignment_id: oldAssignmentId,
             new_assignment_id: newAssignmentId,
@@ -2429,15 +2414,19 @@
             conflict_type: conflictType,
 
             // Danh sách toàn bộ nhân viên phụ trách khách hàng.
-            ma_nv: allIdNvList,
             id_nv_list: allIdNvList,
             ma_nv_list: allIdNvList,
             ten_nv_list: allTenNvList,
 
-            // Nhân viên được chọn làm đại diện cho lần gán hội thoại này.
+            // Giá trị chính dùng để upsert dòng kv_khachhang_nhanvien hiện tại.
+            id: newAssignmentId,
+            id_nv: selectedIdNv,
             selected_id_nv: selectedIdNv,
             selected_ma_nv: selectedMaNv,
-            selected_ten_nv: selectedTenNv
+            selected_ten_nv: selectedTenNv,
+
+            // Giữ ma_nv là 1 nhân viên đang chọn, không gửi mảng để tránh n8n tạo sai ID.
+            ma_nv: selectedIdNv
           },
           { requireConversation: true, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
         );
@@ -2451,8 +2440,8 @@
           getWebhookDisplayMessage(
             result,
             action === "sua_gan_makh"
-              ? "Đã gửi yêu cầu sửa gán KH: " + maKh + " / NV: " + selectedTenNv
-              : "Đã gửi yêu cầu gán KH: " + maKh + " / NV: " + selectedTenNv
+              ? "Đã gửi yêu cầu sửa gán KH: " + cleanMaKh + " / NV: " + selectedTenNv
+              : "Đã gửi yêu cầu gán KH: " + cleanMaKh + " / NV: " + selectedTenNv
           )
         );
       } catch (error) {
@@ -2460,7 +2449,7 @@
 
         if (buttonEl) {
           buttonEl.disabled = false;
-          buttonEl.textContent = "Gán KH";
+          buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
         }
 
         showNotice("Lỗi gán KH: " + (error.message || JSON.stringify(error)), "error", 3500);
