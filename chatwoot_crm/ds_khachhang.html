@@ -1341,6 +1341,8 @@
     let sortField = "";
     let sortDirection = "asc";
     let supabaseClient = null;
+    let SUPABASE_REST_URL = "";
+    let SUPABASE_REST_ANON = "";
     let customers = [];
 
     let currentPage = 1;
@@ -1913,178 +1915,95 @@
       return text ? text : null;
     }
 
-    function parseIdNvListFromValue(value) {
-      if (Array.isArray(value)) {
-        return value.map(function (item) {
-          return normalizeKiotStaffId(item);
-        }).filter(Boolean);
-      }
-
-      const raw = String(value ?? "").trim();
-
-      if (!raw) {
-        return [];
-      }
-
-      // Supabase/Postgres array hiển thị dạng {461167,461176}.
-      if (raw.startsWith("{") && raw.endsWith("}")) {
-        return raw.slice(1, -1)
-          .split(",")
-          .map(function (item) {
-            return normalizeKiotStaffId(item.replace(/^"|"$/g, ""));
-          })
-          .filter(Boolean);
-      }
-
-      // JSON array dạng ["461167","461176"].
-      if (raw.startsWith("[") && raw.endsWith("]")) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            return parsed.map(function (item) {
-              return normalizeKiotStaffId(item);
-            }).filter(Boolean);
-          }
-        } catch (error) {
-          // Không phải JSON array hợp lệ thì xử lý tiếp như chuỗi thường.
-        }
-      }
-
-      // Chuỗi có dấu phẩy.
-      if (raw.includes(",")) {
-        return raw.split(",")
-          .map(function (item) {
-            return normalizeKiotStaffId(item);
-          })
-          .filter(Boolean);
-      }
-
-      return [normalizeKiotStaffId(raw)].filter(Boolean);
-    }
-
-    async function findAssignmentsByConversationId(conversationId) {
-      const cid = normalizeConversationId(conversationId);
-
-      if (!cid || !supabaseClient) {
-        return [];
-      }
-
-      const selectCols = "id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong";
-
-      function normalizeAssignmentRow(row) {
-        if (!row) {
-          return null;
-        }
-
-        // Chỉ bỏ qua dòng đã tắt rõ ràng. Nếu hoat_dong = null/undefined vẫn coi là còn hiệu lực.
-        if (row.hoat_dong === false) {
-          return null;
-        }
-
-        const idNvList = parseIdNvListFromValue(row.id_nv);
-        const firstIdNv = idNvList[0] || normalizeKiotStaffId(row.id_nv);
-        const staff = getStaffByIdNv(firstIdNv);
-        const staffNames = idNvList.map(function (idNv) {
-          const foundStaff = getStaffByIdNv(idNv);
-          return foundStaff ? foundStaff.ten_nv : idNv;
-        }).filter(Boolean);
-
-        return {
-          id: row.id,
-          ma_kh: String(row.ma_kh || "").trim(),
-          id_nv: firstIdNv,
-          id_nv_raw: row.id_nv,
-          id_nv_list: idNvList,
-          ten_nv: staffNames.length ? staffNames.join(", ") : (staff ? staff.ten_nv : String(row.id_nv || "")),
-          conversation_id: normalizeConversationId(row.conversation_id),
-          chatwoot_contact_id: row.chatwoot_contact_id || null,
-          hoat_dong: row.hoat_dong
-        };
-      }
-
-      async function queryByConversationId(value) {
-        const { data, error } = await supabaseClient
-          .from(TABLE_KHACH_HANG_NHANVIEN)
-          .select(selectCols)
-          .eq("conversation_id", value)
-          .limit(50);
-
-        if (error) {
-          console.warn("Không kiểm tra được conversation_id trong kv_khachhang_nhanvien:", {
-            conversation_id: value,
-            error: error
-          });
-          return [];
-        }
-
-        return Array.isArray(data) ? data : [];
-      }
-
-      try {
-        // Bảng của anh đang để conversation_id kiểu số/float8, còn Chatwoot trả về chuỗi.
-        // Vì vậy thử query cả dạng chuỗi và dạng số để không bị lọt trùng.
-        const candidateValues = [cid];
-        const numericCid = Number(cid);
-
-        if (Number.isFinite(numericCid)) {
-          candidateValues.push(numericCid);
-        }
-
-        const seenQueryKeys = new Set();
-        const seenRowKeys = new Set();
-        let rows = [];
-
-        for (const value of candidateValues) {
-          const key = String(value);
-          if (seenQueryKeys.has(key)) continue;
-          seenQueryKeys.add(key);
-
-          const foundRows = await queryByConversationId(value);
-          rows = rows.concat(foundRows);
-        }
-
-        const normalizedRows = rows
-          .map(normalizeAssignmentRow)
-          .filter(function (row) {
-            if (!row || !normalizeConversationId(row.conversation_id)) return false;
-            const key = String(row.id || "") + "|" + row.ma_kh + "|" + row.id_nv_list.join(",") + "|" + row.conversation_id;
-            if (seenRowKeys.has(key)) return false;
-            seenRowKeys.add(key);
-            return true;
-          });
-
-        console.log("KIỂM TRA TRÙNG HỘI THOẠI TRONG kv_khachhang_nhanvien:", {
-          conversation_id: cid,
-          candidate_values: candidateValues,
-          rows: rows,
-          normalized_rows: normalizedRows
-        });
-
-        return normalizedRows;
-      } catch (error) {
-        console.warn("Lỗi khi kiểm tra conversation_id trong kv_khachhang_nhanvien:", error);
-        return [];
-      }
+    function makeAssignmentId(maKh, idNv) {
+      const cleanMaKh = String(maKh || "").trim();
+      const cleanIdNv = normalizeKiotStaffId(idNv);
+      return cleanMaKh && cleanIdNv ? cleanMaKh + "_" + cleanIdNv : "";
     }
 
     async function findAssignmentByConversationId(conversationId) {
-      const rows = await findAssignmentsByConversationId(conversationId);
-      return rows.length ? rows[0] : null;
-    }
+      const cid = normalizeConversationId(conversationId);
 
-    function isSameCustomerStaffAssignment(assignment, maKh, idNv) {
-      if (!assignment) {
-        return false;
+      if (!cid) {
+        return null;
       }
 
-      const currentMaKh = String(maKh || "").trim();
-      const selectedIdNv = normalizeKiotStaffId(idNv);
-      const existingMaKh = String(assignment.ma_kh || "").trim();
-      const existingIdNvList = Array.isArray(assignment.id_nv_list)
-        ? assignment.id_nv_list.map(function (item) { return normalizeKiotStaffId(item); }).filter(Boolean)
-        : parseIdNvListFromValue(assignment.id_nv || assignment.id_nv_raw);
+      if (!SUPABASE_REST_URL || !SUPABASE_REST_ANON) {
+        console.warn("Thiếu SUPABASE_REST_URL hoặc SUPABASE_REST_ANON khi kiểm tra conversation_id.");
+        return null;
+      }
 
-      return existingMaKh === currentMaKh && existingIdNvList.includes(selectedIdNv);
+      const url =
+        SUPABASE_REST_URL.replace(/\/$/, "") +
+        "/rest/v1/" +
+        TABLE_KHACH_HANG_NHANVIEN +
+        "?select=id,ma_kh,id_nv,ten_nv,conversation_id,chatwoot_contact_id,hoat_dong" +
+        "&conversation_id=eq." +
+        encodeURIComponent(cid) +
+        "&limit=20";
+
+      console.log("HTTP CHECK TRÙNG HỘP THOẠI kv_khachhang_nhanvien:", {
+        conversation_id: cid,
+        url: url
+      });
+
+      try {
+        const resp = await fetch(url, {
+          method: "GET",
+          headers: {
+            apikey: SUPABASE_REST_ANON,
+            Authorization: "Bearer " + SUPABASE_REST_ANON,
+            Accept: "application/json"
+          }
+        });
+
+        const text = await resp.text();
+
+        if (!resp.ok) {
+          console.warn("HTTP check conversation_id lỗi:", resp.status, text);
+          return null;
+        }
+
+        let rows = [];
+
+        try {
+          rows = text ? JSON.parse(text) : [];
+        } catch (error) {
+          console.warn("Không parse được kết quả HTTP check conversation_id:", text);
+          return null;
+        }
+
+        const activeRows = rows.filter(function (row) {
+          return row && row.hoat_dong !== false;
+        });
+
+        if (activeRows.length === 0) {
+          console.log("HTTP CHECK TRÙNG HỘP THOẠI: chưa có dòng nào dùng conversation_id", cid);
+          return null;
+        }
+
+        const row = activeRows[0];
+        const staff = getStaffByIdNv(row.id_nv);
+        const assignmentId = row.id || makeAssignmentId(row.ma_kh, row.id_nv);
+
+        const result = {
+          id: assignmentId,
+          ma_kh: row.ma_kh || "",
+          id_nv: normalizeKiotStaffId(row.id_nv),
+          ten_nv: row.ten_nv || (staff ? staff.ten_nv : String(row.id_nv || "")),
+          conversation_id: normalizeConversationId(row.conversation_id),
+          chatwoot_contact_id: row.chatwoot_contact_id || null,
+          hoat_dong: row.hoat_dong,
+          raw_rows: activeRows
+        };
+
+        console.log("KẾT QUẢ HTTP CHECK TRÙNG HỘP THOẠI:", result);
+
+        return result;
+      } catch (error) {
+        console.warn("Lỗi HTTP khi kiểm tra conversation_id trong kv_khachhang_nhanvien:", error);
+        return null;
+      }
     }
 
     async function findAssignmentByCustomerAndStaff(maKh, idNv) {
@@ -2101,7 +2020,8 @@
           .select("id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong")
           .eq("ma_kh", cleanMaKh)
           .eq("id_nv", cleanIdNv)
-          .limit(10);
+          .eq("hoat_dong", true)
+          .limit(1);
 
         if (error) {
           console.warn("Không kiểm tra được ma_kh + id_nv trong kv_khachhang_nhanvien:", error);
@@ -2112,24 +2032,17 @@
           return null;
         }
 
-        const activeRow = data.find(function (row) {
-          return row && row.hoat_dong !== false;
-        }) || null;
-
-        if (!activeRow) {
-          return null;
-        }
-
-        const staff = getStaffByIdNv(activeRow.id_nv);
+        const row = data[0];
+        const staff = getStaffByIdNv(row.id_nv);
 
         return {
-          id: activeRow.id,
-          ma_kh: String(activeRow.ma_kh || "").trim(),
-          id_nv: normalizeKiotStaffId(activeRow.id_nv),
-          ten_nv: staff ? staff.ten_nv : String(activeRow.id_nv || ""),
-          conversation_id: normalizeConversationId(activeRow.conversation_id),
-          chatwoot_contact_id: activeRow.chatwoot_contact_id || null,
-          hoat_dong: activeRow.hoat_dong
+          id: row.id,
+          ma_kh: row.ma_kh || "",
+          id_nv: normalizeKiotStaffId(row.id_nv),
+          ten_nv: staff ? staff.ten_nv : String(row.id_nv || ""),
+          conversation_id: normalizeConversationId(row.conversation_id),
+          chatwoot_contact_id: row.chatwoot_contact_id || null,
+          hoat_dong: row.hoat_dong
         };
       } catch (error) {
         console.warn("Lỗi khi kiểm tra ma_kh + id_nv trong kv_khachhang_nhanvien:", error);
@@ -2277,9 +2190,10 @@
         return staff.ten_nv || staff.id_nv;
       }).filter(Boolean);
 
-      // ma_nv chính gửi webhook phải là TOÀN BỘ nhân viên đang gán cho khách.
-      // selected_id_nv mới là nhân viên được chọn để gán/sửa hội thoại lần này.
+      // ma_nv/id_nv_list là toàn bộ nhân viên của khách.
+      // selected_id_nv mới là nhân viên được chọn cho hộp thoại hiện tại.
       const maNv = allIdNvList;
+      const newAssignmentId = makeAssignmentId(maKh, selectedIdNv);
 
       if (buttonEl) {
         buttonEl.disabled = true;
@@ -2306,87 +2220,100 @@
         let oldIdNv = null;
         let existingAssignmentId = null;
         let selectedAssignmentId = null;
+        let oldAssignmentId = null;
+        let actionReason = "gan_hoi_thoai_moi";
+        let conflictType = "";
 
-        // LỚP CHẶN TRƯỚC KHI GÁN:
-        // Nếu conversation_id hiện tại đã tồn tại trong kv_khachhang_nhanvien thì bắt buộc hỏi trước.
-        // OK => gửi action sửa hội thoại đã có. Cancel => dừng code, không gửi webhook.
-        const existingAssignments = await findAssignmentsByConversationId(conversationId);
-        const existingAssignment = existingAssignments.length ? existingAssignments[0] : null;
+        // Lớp chặn 1: kiểm tra đúng cặp ma_kh + id_nv trong kv_khachhang_nhanvien.
+        // Nếu cặp này đã có chính conversation_id hiện tại thì coi là sửa chính dòng đó.
+        // Nếu cặp này đang có conversation_id khác thì hỏi trước khi đổi hộp thoại cho cặp này.
+        const selectedAssignment = await findAssignmentByCustomerAndStaff(maKh, selectedIdNv);
+
+        if (selectedAssignment && selectedAssignment.conversation_id) {
+          selectedAssignmentId = selectedAssignment.id || makeAssignmentId(maKh, selectedIdNv);
+
+          if (normalizeConversationId(selectedAssignment.conversation_id) === conversationId) {
+            action = "sua_gan_makh";
+            actionReason = "sua_chinh_id_hien_tai";
+          } else {
+            const ok = await showAssignConfirm(
+              `Mã KH <b>${escapeHtml(maKh)}</b> với nhân viên
+               <b>${escapeHtml(selectedTenNv || selectedAssignment.ten_nv || selectedIdNv)}</b>
+               đang có hộp thoại khác:
+               <b>${escapeHtml(selectedAssignment.conversation_id)}</b>.<br><br>
+               Bạn có muốn đổi sang hộp thoại hiện tại
+               <b>${escapeHtml(conversationId)}</b> không?`,
+              "Cặp KH + nhân viên đã có hộp thoại"
+            );
+
+            if (!ok) {
+              if (buttonEl) {
+                buttonEl.disabled = false;
+                buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
+              }
+              return;
+            }
+
+            action = "sua_gan_makh";
+            actionReason = "sua_hoi_thoai_cua_chinh_id";
+            conflictType = "ma_kh_id_nv_da_co_hoi_thoai_khac";
+            oldConversationId = selectedAssignment.conversation_id;
+            oldAssignmentId = selectedAssignmentId;
+          }
+        }
+
+        // Lớp chặn 2: kiểm tra hội thoại hiện tại trong kv_khachhang_nhanvien, không kiểm tra kv_khachhang nữa.
+        const existingAssignment = await findAssignmentByConversationId(conversationId);
 
         if (existingAssignment && normalizeConversationId(existingAssignment.conversation_id)) {
           const existingMaKh = String(existingAssignment.ma_kh || "").trim();
-          const existingIdNvList = Array.isArray(existingAssignment.id_nv_list)
-            ? existingAssignment.id_nv_list
-            : parseIdNvListFromValue(existingAssignment.id_nv || existingAssignment.id_nv_raw);
-          const existingTenNv = String(existingAssignment.ten_nv || existingIdNvList.join(", ") || "").trim();
-          const currentMaKh = String(maKh || "").trim();
-          const isSameAssignment = isSameCustomerStaffAssignment(existingAssignment, currentMaKh, selectedIdNv);
+          const existingIdNv = normalizeKiotStaffId(existingAssignment.id_nv);
+          const existingTenNv = String(existingAssignment.ten_nv || existingIdNv || "").trim();
+          const existingId = existingAssignment.id || makeAssignmentId(existingMaKh, existingIdNv);
+          const isSameAssignment = existingId === newAssignmentId;
 
-          console.log("KẾT QUẢ CHECK TRÙNG HỘI THOẠI:", {
+          console.log("SO SÁNH ID GÁN HỘP THOẠI:", {
             conversation_id: conversationId,
-            existing_assignments: existingAssignments,
-            existing_ma_kh: existingMaKh,
-            existing_id_nv_list: existingIdNvList,
-            selected_ma_kh: currentMaKh,
-            selected_id_nv: selectedIdNv,
+            old_id: existingId,
+            new_id: newAssignmentId,
             is_same_assignment: isSameAssignment
           });
 
-          const ok = await showAssignConfirm(
-            `Cuộc hội thoại <b>${escapeHtml(conversationId)}</b> đã có nhân viên quản lý rồi:<br>
-             Mã KH: <b>${escapeHtml(existingMaKh || "Không rõ")}</b><br>
-             Nhân viên: <b>${escapeHtml(existingTenNv || "Không rõ")}</b><br><br>
-             Bạn đang gán sang:<br>
-             Mã KH: <b>${escapeHtml(currentMaKh)}</b><br>
-             Nhân viên: <b>${escapeHtml(selectedTenNv || selectedIdNv)}</b><br><br>
-             Bạn có muốn thay đổi không?`,
-            "Cuộc hội thoại đã có nhân viên quản lý"
-          );
+          if (isSameAssignment) {
+            // Cùng id = ma_kh_selectedIdNv: đây là sửa chính dòng đang gán, không phải trùng người khác.
+            action = "sua_gan_makh";
+            actionReason = "sua_chinh_id_hien_tai";
+            existingAssignmentId = existingAssignment.id || null;
+          } else {
+            const ok = await showAssignConfirm(
+              `Cuộc hội thoại <b>${escapeHtml(conversationId)}</b> đã có nhân viên quản lý rồi.<br><br>
+               Đang gán cho:<br>
+               Mã KH: <b>${escapeHtml(existingMaKh || "Không rõ")}</b><br>
+               Nhân viên: <b>${escapeHtml(existingTenNv || "Không rõ")}</b><br>
+               ID dòng: <b>${escapeHtml(existingId || "Không rõ")}</b><br><br>
+               Bạn có muốn chuyển sang:<br>
+               Mã KH: <b>${escapeHtml(maKh)}</b><br>
+               Nhân viên: <b>${escapeHtml(selectedTenNv || selectedIdNv)}</b><br>
+               ID dòng mới: <b>${escapeHtml(newAssignmentId)}</b> không?`,
+              "Hội thoại đã được gán"
+            );
 
-          if (!ok) {
-            if (buttonEl) {
-              buttonEl.disabled = false;
-              buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
+            if (!ok) {
+              if (buttonEl) {
+                buttonEl.disabled = false;
+                buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
+              }
+              return;
             }
-            return;
+
+            action = "sua_gan_makh";
+            actionReason = "sua_hoi_thoai_da_co";
+            conflictType = "conversation_id_da_gan_cho_id_khac";
+            oldMaKh = existingMaKh || null;
+            oldIdNv = existingIdNv || null;
+            oldAssignmentId = existingId || null;
+            existingAssignmentId = existingAssignment.id || null;
           }
-
-          action = "sua_gan_makh";
-          oldConversationId = existingAssignment.conversation_id || conversationId;
-          oldMaKh = existingMaKh || null;
-          oldIdNv = existingIdNvList.join(",") || null;
-          existingAssignmentId = existingAssignment.id || null;
-        }
-
-        // Lớp chặn phụ: nếu đúng cặp ma_kh + id_nv đã có hội thoại khác thì cũng hỏi trước.
-        // Nếu hội thoại đó trùng conversation_id hiện tại thì bỏ qua vì đã hỏi ở lớp trên.
-        const selectedAssignment = await findAssignmentByCustomerAndStaff(maKh, selectedIdNv);
-
-        if (
-          selectedAssignment &&
-          selectedAssignment.conversation_id &&
-          normalizeConversationId(selectedAssignment.conversation_id) !== normalizeConversationId(conversationId)
-        ) {
-          const ok = await showAssignConfirm(
-            `Mã KH <b>${escapeHtml(maKh)}</b> với nhân viên
-             <b>${escapeHtml(selectedTenNv || selectedAssignment.ten_nv || selectedIdNv)}</b>
-             đã được gán hội thoại:
-             <b>${escapeHtml(selectedAssignment.conversation_id)}</b>.<br><br>
-             Bạn có muốn thay đổi sang hội thoại <b>${escapeHtml(conversationId)}</b> không?`,
-            "Nhân viên này đã có hội thoại khác"
-          );
-
-          if (!ok) {
-            if (buttonEl) {
-              buttonEl.disabled = false;
-              buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
-            }
-            return;
-          }
-
-          action = "sua_gan_makh";
-          oldConversationId = selectedAssignment.conversation_id;
-          selectedAssignmentId = selectedAssignment.id || null;
         }
 
         const response = await sendCustomerWebhook(
@@ -2405,11 +2332,12 @@
             existing_assignment_id: existingAssignmentId,
             checked_table: TABLE_KHACH_HANG_NHANVIEN,
             checked_existing_ma_kh: oldMaKh,
-            action_reason: action === "sua_gan_makh" ? "sua_hoi_thoai_da_co" : "gan_hoi_thoai_moi",
-            conflict_type: existingAssignmentId ? "conversation_id_da_gan_khach_hang_khac" : "",
+            old_assignment_id: oldAssignmentId,
+            new_assignment_id: newAssignmentId,
+            action_reason: actionReason,
+            conflict_type: conflictType,
 
             // Danh sách toàn bộ nhân viên phụ trách khách hàng.
-            // Ghi đè ma_nv ở buildWebhookPayload để n8n nhận đủ nhiều nhân viên.
             ma_nv: allIdNvList,
             id_nv_list: allIdNvList,
             ma_nv_list: allIdNvList,
@@ -2928,6 +2856,9 @@
           popupLoginMessage.textContent = "Chưa lấy được Supabase URL hoặc anon key.";
           return;
         }
+
+        SUPABASE_REST_URL = supabaseUrl;
+        SUPABASE_REST_ANON = supabaseAnon;
 
         supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnon);
 
