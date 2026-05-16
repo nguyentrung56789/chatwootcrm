@@ -1625,10 +1625,49 @@
       });
     }
 
+    function extractConversationIdFromUrlText(text) {
+      const raw = String(text || "");
+      if (!raw) {
+        return null;
+      }
+
+      const patterns = [
+        /\/conversations\/(\d+)/i,
+        /[?&]conversation_id=(\d+)/i,
+        /[?&]chatwoot_conversation_id=(\d+)/i,
+        /["']conversation_id["']\s*:\s*["']?(\d+)["']?/i
+      ];
+
+      for (const regex of patterns) {
+        const match = raw.match(regex);
+        if (match && match[1]) {
+          return String(match[1]);
+        }
+      }
+
+      return null;
+    }
+
+    function getConversationIdFromBrowserContext() {
+      return (
+        extractConversationIdFromUrlText(window.location.href) ||
+        extractConversationIdFromUrlText(document.referrer) ||
+        extractConversationIdFromUrlText(chatwootContextRaw) ||
+        null
+      );
+    }
+
     function getCurrentConversationId() {
       const queryId = getQueryParam("conversation_id");
       if (queryId) {
         return String(queryId);
+      }
+
+      // Ưu tiên URL thật của Chatwoot cha: /app/accounts/1/conversations/12022.
+      // Trường này ổn định hơn appContext khi dashboard app nằm trong iframe.
+      const browserContextId = getConversationIdFromBrowserContext();
+      if (browserContextId) {
+        return String(browserContextId);
       }
 
       const ctx = chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null;
@@ -1654,11 +1693,6 @@
 
       if (window.__CHATWOOT_CONVERSATION_ID__) {
         return String(window.__CHATWOOT_CONVERSATION_ID__);
-      }
-
-      if (chatwootContextRaw) {
-        const rawId = extractFirstMatch(chatwootContextRaw, /["']conversation_id["']\s*:\s*["']?(\d+)["']?/i);
-        if (rawId) return String(rawId);
       }
 
       return null;
@@ -1974,6 +2008,12 @@
 
       console.log("[DEBUG GÁN KH] HTTP CHECK URL:", url);
 
+      await showAssignDebugStep(
+        "URL check Supabase:\n" + url,
+        "ok",
+        650
+      );
+
       const resp = await fetch(url, {
         method: "GET",
         headers: {
@@ -2238,6 +2278,14 @@
 
         const conversationId = normalizeConversationId(getCurrentConversationId());
         const contactId = getCurrentContactId();
+
+        await showAssignDebugStep(
+          "conversation_id đang dùng để check = " + conversationId +
+            "\nwindow.location = " + window.location.href +
+            "\nreferrer = " + (document.referrer || "không có"),
+          "ok",
+          650
+        );
 
         if (!conversationId) {
           throw new Error("Chưa lấy được conversation_id từ Chatwoot appContext.");
