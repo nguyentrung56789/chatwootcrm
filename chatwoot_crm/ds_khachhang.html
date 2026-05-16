@@ -2671,12 +2671,19 @@
         return staff.ten_nv || staff.id_nv;
       }).filter(Boolean);
 
+      const currentChatwootConversationId = normalizeConversationId(getCurrentConversationId());
+      const rowConversationId = normalizeConversationId(customer.conversation_id);
+
       currentZaloChatRow = {
         ma_kh: customer.ma_kh || "",
         ten_kh: customer.ten_kh || "",
         sdt: customer.sdt || "",
-        conversation_id: customer.conversation_id,
-        chatwoot_contact_id: customer.chatwoot_contact_id || null,
+
+        // Zalo chat phải gửi theo hội thoại Chatwoot đang mở hiện tại.
+        // row_conversation_id chỉ giữ lại để đối chiếu dòng khách hàng nếu cần.
+        conversation_id: currentChatwootConversationId || rowConversationId || "",
+        row_conversation_id: rowConversationId || "",
+        chatwoot_contact_id: getCurrentContactId() || customer.chatwoot_contact_id || null,
 
         // Danh sách toàn bộ nhân viên phụ trách dòng khách này.
         ma_nv: allIdNvList,
@@ -2825,6 +2832,7 @@
         formData.append("sdt", currentZaloChatRow.sdt || "");
         formData.append("conversation_id", currentZaloChatRow.conversation_id || "");
         formData.append("chatwoot_conversation_id", currentZaloChatRow.conversation_id || "");
+        formData.append("row_conversation_id", currentZaloChatRow.row_conversation_id || "");
         formData.append("chatwoot_contact_id", currentZaloChatRow.chatwoot_contact_id || "");
         formData.append("message", message || "");
 
@@ -2875,6 +2883,8 @@
 
         console.log("ĐÃ GỬI WEBHOOK ZALO CHAT:", {
           ma_kh: currentZaloChatRow.ma_kh,
+          conversation_id: currentZaloChatRow.conversation_id,
+          row_conversation_id: currentZaloChatRow.row_conversation_id,
           ma_nv: currentZaloChatRow.ma_nv,
           selected_id_nv: currentZaloChatRow.selected_id_nv,
           selected_ten_nv: currentZaloChatRow.selected_ten_nv
