@@ -1690,9 +1690,18 @@
       return raw ? raw : null;
     }
 
-    function showNotice(message, type = "ok", timeoutMs = 1800) {
+    function showNotice(message, type = "ok", timeoutMs = 10000) {
       noticeBox.classList.remove("hidden");
       noticeBox.innerHTML = escapeHtml(message);
+
+      // Cho thông báo debug đứng lâu và dễ đọc để anh kịp chụp màn hình.
+      noticeBox.style.whiteSpace = "pre-wrap";
+      noticeBox.style.lineHeight = "1.45";
+      noticeBox.style.maxHeight = "45vh";
+      noticeBox.style.overflowY = "auto";
+      noticeBox.style.width = "520px";
+      noticeBox.style.maxWidth = "calc(100vw - 36px)";
+      noticeBox.style.fontSize = "13px";
 
       if (type === "error") {
         noticeBox.style.borderColor = "#fecaca";
@@ -1705,16 +1714,19 @@
       }
 
       if (timeoutMs > 0) {
+        const displayMs = Math.max(Number(timeoutMs) || 0, 10000);
+
         setTimeout(function () {
           noticeBox.classList.add("hidden");
           noticeBox.innerHTML = "";
-        }, timeoutMs);
+        }, displayMs);
       }
     }
 
 
     async function showAssignDebugStep(message, type = "ok", delayMs = 850) {
-      showNotice("[DEBUG GÁN KH] " + message, type, Math.max(delayMs + 400, 1600));
+      showNotice("[DEBUG GÁN KH]
+" + message, type, 10000);
       console.log("[DEBUG GÁN KH]", message);
       if (delayMs > 0) {
         await new Promise(function (resolve) {
@@ -2966,18 +2978,17 @@
         return;
       }
 
+      // Dùng select("*") để tránh lỗi đăng nhập/load nhân viên khi bảng thiếu cột phụ
+      // như admin, dien_thoai, hoặc khi tên cột thay đổi nhẹ. Phần bắt buộc vẫn là ma_nv + id_nv.
       const { data, error } = await supabaseClient
         .from(TABLE_NHAN_VIEN)
-        .select("ma_nv, id_nv, ten_nv")
-        .not("id_nv", "is", null)
-        .not("ma_nv", "is", null)
-        .order("ten_nv", { ascending: true });
+        .select("*");
 
       if (error) {
         console.error("Lỗi tải nhân viên:", error);
 
         if (typeof showNotice === "function") {
-          showNotice("Lỗi tải nhân viên: " + (error.message || JSON.stringify(error)), "error", 3500);
+          showNotice("Lỗi tải nhân viên: " + (error.message || JSON.stringify(error)), "error", 10000);
         }
 
         return;
@@ -2989,19 +3000,29 @@
           const idNv = normalizeKiotStaffId(item.id_nv);
 
           return {
-            // ma_nv là mã đăng nhập / mã nội bộ để lưu vào kv_khachhang.ma_nv.
+            // ma_nv là mã đăng nhập / mã nội bộ.
             ma_nv: maNv,
 
-            // id_nv là ID nhân viên KiotViet, chỉ dùng để lọc và gửi kèm webhook.
+            // id_nv là ID nhân viên KiotViet, dùng để gán hộp thoại.
             id_nv: idNv,
 
-            ten_nv: String(item.ten_nv || maNv || idNv || "").trim()
+            ten_nv: String(item.ten_nv || item.name || maNv || idNv || "").trim()
           };
         })
         .filter(function (item) {
-          // Chỉ hiện nhân viên đã có cả mã đăng nhập ma_nv và ID KiotViet id_nv.
           return item.ma_nv !== "" && item.id_nv !== "";
+        })
+        .sort(function (a, b) {
+          return String(a.ten_nv || "").localeCompare(String(b.ten_nv || ""), "vi");
         });
+
+      if (staffRows.length === 0) {
+        showNotice(
+          "Không tải được danh sách nhân viên có đủ ma_nv và id_nv. Kiểm tra bảng " + TABLE_NHAN_VIEN + ".",
+          "error",
+          10000
+        );
+      }
 
       renderStaffDropdown();
 
@@ -3902,19 +3923,49 @@
       popupLoginBtn.disabled = true;
       popupLoginBtn.textContent = "Đang đăng nhập...";
 
-      const { data, error } = await supabaseClient
-        .from(TABLE_NHAN_VIEN)
-        .select("ma_nv, mat_khau, ten_nv, dien_thoai, hoat_dong, admin")
-        .or(`ma_nv.eq.${maNv},dien_thoai.eq.${maNv}`)
-        .eq("mat_khau", matKhau)
-        .maybeSingle();
+      let data = null;
+      let error = null;
+
+      // Đăng nhập chính bằng ma_nv. Dùng select("*") để không lỗi nếu bảng thiếu cột phụ.
+      try {
+        const result = await supabaseClient
+          .from(TABLE_NHAN_VIEN)
+          .select("*")
+          .eq("ma_nv", maNv)
+          .eq("mat_khau", matKhau)
+          .maybeSingle();
+
+        data = result.data;
+        error = result.error;
+      } catch (err) {
+        error = err;
+      }
+
+      // Nếu không thấy bằng ma_nv, thử thêm dien_thoai nếu bảng có cột đó.
+      // Nếu bảng không có dien_thoai thì bỏ qua lỗi fallback, không làm hỏng đăng nhập ma_nv.
+      if (!data && !error) {
+        try {
+          const phoneResult = await supabaseClient
+            .from(TABLE_NHAN_VIEN)
+            .select("*")
+            .eq("dien_thoai", maNv)
+            .eq("mat_khau", matKhau)
+            .maybeSingle();
+
+          if (!phoneResult.error && phoneResult.data) {
+            data = phoneResult.data;
+          }
+        } catch (fallbackError) {
+          console.warn("Bỏ qua đăng nhập bằng điện thoại vì cột dien_thoai có thể không tồn tại:", fallbackError);
+        }
+      }
 
       popupLoginBtn.disabled = false;
       popupLoginBtn.textContent = "Đăng nhập";
 
       if (error) {
         console.error("Lỗi đăng nhập:", error);
-        popupLoginMessage.textContent = "Lỗi kiểm tra đăng nhập.";
+        popupLoginMessage.textContent = "Lỗi kiểm tra đăng nhập: " + (error.message || JSON.stringify(error));
         return;
       }
 
@@ -3929,9 +3980,10 @@
       }
 
       currentUser = {
-        ma_nv: data.ma_nv,
-        ten_nv: data.ten_nv,
-        admin: data.admin === true,
+        ma_nv: String(data.ma_nv || maNv).trim(),
+        id_nv: normalizeKiotStaffId(data.id_nv),
+        ten_nv: String(data.ten_nv || data.name || data.ma_nv || maNv).trim(),
+        admin: data.admin === true || data.admin === "true" || data.quyen === "admin",
         login_at: new Date().toISOString()
       };
 
