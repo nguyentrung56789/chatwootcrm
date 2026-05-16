@@ -1693,14 +1693,11 @@
     function showNotice(message, type = "ok", timeoutMs = 10000) {
       noticeBox.classList.remove("hidden");
       noticeBox.innerHTML = escapeHtml(message);
-
-      // Cho thông báo debug đứng lâu và dễ đọc để anh kịp chụp màn hình.
       noticeBox.style.whiteSpace = "pre-wrap";
       noticeBox.style.lineHeight = "1.45";
       noticeBox.style.maxHeight = "45vh";
       noticeBox.style.overflowY = "auto";
       noticeBox.style.width = "520px";
-      noticeBox.style.maxWidth = "calc(100vw - 36px)";
       noticeBox.style.fontSize = "13px";
 
       if (type === "error") {
@@ -1714,19 +1711,16 @@
       }
 
       if (timeoutMs > 0) {
-        const displayMs = Math.max(Number(timeoutMs) || 0, 10000);
-
         setTimeout(function () {
           noticeBox.classList.add("hidden");
           noticeBox.innerHTML = "";
-        }, displayMs);
+        }, timeoutMs);
       }
     }
 
 
-    async function showAssignDebugStep(message, type = "ok", delayMs = 850) {
-      showNotice("[DEBUG GÁN KH]
-" + message, type, 10000);
+    async function showAssignDebugStep(message, type = "ok", delayMs = 350) {
+      showNotice("[DEBUG GÁN KH] " + message, type, 10000);
       console.log("[DEBUG GÁN KH]", message);
       if (delayMs > 0) {
         await new Promise(function (resolve) {
@@ -1948,13 +1942,19 @@
       const cid = normalizeConversationId(conversationId);
 
       if (!cid) {
-        await showAssignDebugStep("Không có conversation_id để kiểm tra.", "error", 900);
+        await showAssignDebugStep("Không có conversation_id để kiểm tra.", "error", 350);
         return [];
       }
 
       if (!SUPABASE_REST_URL || !SUPABASE_REST_ANON) {
-        await showAssignDebugStep("Thiếu cấu hình Supabase REST URL/ANON nên không thể kiểm tra trùng. Dừng gán.", "error", 1200);
+        await showAssignDebugStep("Thiếu cấu hình Supabase REST URL/ANON. Dừng gán để tránh trùng hộp thoại.", "error", 350);
         throw new Error("Thiếu SUPABASE_REST_URL hoặc SUPABASE_REST_ANON khi kiểm tra conversation_id.");
+      }
+
+      const numericConversationId = Number(cid);
+      if (!Number.isFinite(numericConversationId)) {
+        await showAssignDebugStep("conversation_id không hợp lệ: " + cid, "error", 350);
+        throw new Error("conversation_id không hợp lệ: " + cid);
       }
 
       const url =
@@ -1963,15 +1963,16 @@
         TABLE_KHACH_HANG_NHANVIEN +
         "?select=id,ma_kh,id_nv,conversation_id,chatwoot_contact_id,hoat_dong" +
         "&conversation_id=eq." +
-        encodeURIComponent(cid) +
+        encodeURIComponent(String(numericConversationId)) +
         "&limit=100";
 
-      await showAssignDebugStep("Bắt đầu kiểm tra table kv_khachhang_nhanvien với conversation_id = " + cid, "ok", 900);
+      await showAssignDebugStep(
+        "Bắt đầu HTTP check table kv_khachhang_nhanvien\nconversation_id = " + numericConversationId,
+        "ok",
+        350
+      );
 
-      console.log("HTTP CHECK TẤT CẢ DÒNG TRÙNG HỘP THOẠI kv_khachhang_nhanvien:", {
-        conversation_id: cid,
-        url: url
-      });
+      console.log("[DEBUG GÁN KH] HTTP CHECK URL:", url);
 
       const resp = await fetch(url, {
         method: "GET",
@@ -1983,38 +1984,39 @@
       });
 
       const text = await resp.text();
+      console.log("[DEBUG GÁN KH] HTTP CHECK STATUS:", resp.status);
+      console.log("[DEBUG GÁN KH] HTTP CHECK RESPONSE:", text);
 
       if (!resp.ok) {
-        console.warn("HTTP check conversation_id lỗi:", resp.status, text);
-        await showAssignDebugStep("HTTP check Supabase lỗi " + resp.status + ". Dừng gán để tránh trùng hộp thoại.", "error", 1500);
+        await showAssignDebugStep(
+          "HTTP check conversation_id lỗi " + resp.status + ": " + text,
+          "error",
+          350
+        );
         throw new Error("HTTP check conversation_id lỗi: " + resp.status + " - " + text);
       }
 
       let rows = [];
-
       try {
         rows = text ? JSON.parse(text) : [];
       } catch (error) {
-        console.warn("Không parse được kết quả HTTP check conversation_id:", text);
-        await showAssignDebugStep("Không đọc được kết quả Supabase. Dừng gán để tránh trùng hộp thoại.", "error", 1500);
-        throw new Error("Không parse được kết quả HTTP check conversation_id.");
+        await showAssignDebugStep("Không parse được JSON Supabase. Dừng gán.", "error", 350);
+        throw new Error("Không parse được kết quả HTTP check conversation_id: " + text);
       }
 
-      await showAssignDebugStep("HTTP check trả về " + rows.length + " dòng có conversation_id này.", rows.length > 0 ? "error" : "ok", 1000);
-
-      const activeRows = rows
+      const activeRows = (rows || [])
         .filter(function (row) {
           return row && row.hoat_dong !== false;
         })
         .map(function (row) {
           const staff = getStaffByIdNv(row.id_nv);
-          const assignmentId = row.id || makeAssignmentId(row.ma_kh, row.id_nv);
+          const assignmentId = String(row.id || makeAssignmentId(row.ma_kh, row.id_nv) || "").trim();
 
           return {
             id: assignmentId,
-            ma_kh: row.ma_kh || "",
+            ma_kh: String(row.ma_kh || "").trim(),
             id_nv: normalizeKiotStaffId(row.id_nv),
-            ten_nv: row.ten_nv || (staff ? staff.ten_nv : String(row.id_nv || "")),
+            ten_nv: staff ? staff.ten_nv : String(row.id_nv || ""),
             conversation_id: normalizeConversationId(row.conversation_id),
             chatwoot_contact_id: row.chatwoot_contact_id || null,
             hoat_dong: row.hoat_dong,
@@ -2022,15 +2024,12 @@
           };
         });
 
-      if (rows.length !== activeRows.length) {
-        await showAssignDebugStep("Bỏ qua " + (rows.length - activeRows.length) + " dòng hoat_dong=false. Còn " + activeRows.length + " dòng active.", "ok", 900);
-      }
-
-      console.log("KẾT QUẢ HTTP CHECK TẤT CẢ DÒNG TRÙNG HỘP THOẠI:", {
-        conversation_id: cid,
-        so_dong: activeRows.length,
-        rows: activeRows
-      });
+      await showAssignDebugStep(
+        "HTTP check trả về " + activeRows.length + " dòng active.\nID tìm thấy: " +
+          (activeRows.length ? activeRows.map(function (row) { return row.id; }).join(", ") : "không có"),
+        activeRows.length > 0 ? "error" : "ok",
+        350
+      );
 
       return activeRows;
     }
@@ -2303,61 +2302,57 @@
         }
 
         // Lớp chặn 2: kiểm tra TẤT CẢ dòng đang dùng conversation_id hiện tại.
-        // Không được lấy 1 dòng đầu tiên, vì 1 conversation_id có thể đang bị trùng nhiều dòng.
-        // Nếu có bất kỳ dòng nào có id khác newAssignmentId => hội thoại đã gán cho cặp KH + NV khác.
+        // Quy tắc: conversation_id không được gắn cho ID khác.
+        // ID hợp lệ của dòng đang gán = ma_kh + "_" + selected_id_nv.
         const existingAssignments = await findAssignmentsByConversationId(conversationId);
-
-        if (existingAssignments.length > 0) {
-          await showAssignDebugStep(
-            "Tìm thấy hộp thoại " + conversationId + " trong bảng. Danh sách ID: " +
-              existingAssignments.map(function (item) {
-                return item.id || makeAssignmentId(item.ma_kh, item.id_nv);
-              }).join(", "),
-            "error",
-            1500
-          );
-        } else {
-          await showAssignDebugStep("Không tìm thấy hộp thoại này trong bảng. Có thể gán mới.", "ok", 900);
-        }
 
         const conflictRows = existingAssignments.filter(function (item) {
           const oldId = String(item.id || makeAssignmentId(item.ma_kh, item.id_nv) || "").trim();
           return oldId && oldId !== newAssignmentId;
         });
 
-        if (conflictRows.length > 0) {
+        if (existingAssignments.length > 0) {
           await showAssignDebugStep(
-            "Tìm thấy ID khác new_id. new_id = " + newAssignmentId +
-              " / ID khác = " + conflictRows.map(function (item) {
+            "Tìm thấy conversation_id trong kv_khachhang_nhanvien.\n" +
+              "conversation_id = " + conversationId + "\n" +
+              "new_id = " + newAssignmentId + "\n" +
+              "Danh sách ID đang giữ: " + existingAssignments.map(function (item) {
                 return item.id || makeAssignmentId(item.ma_kh, item.id_nv);
               }).join(", "),
-            "error",
-            1800
+            conflictRows.length > 0 ? "error" : "ok",
+            350
           );
-        } else if (existingAssignments.length > 0) {
-          await showAssignDebugStep("Có hộp thoại nhưng tất cả ID đều giống new_id. Đây là sửa chính dòng hiện tại.", "ok", 1200);
+        } else {
+          await showAssignDebugStep(
+            "Không tìm thấy conversation_id trong kv_khachhang_nhanvien. Có thể gán mới.\n" +
+              "conversation_id = " + conversationId + "\n" +
+              "new_id = " + newAssignmentId,
+            "ok",
+            350
+          );
         }
-
-        console.log("SO SÁNH TẤT CẢ ID ĐANG DÙNG HỘP THOẠI:", {
-          conversation_id: conversationId,
-          new_id: newAssignmentId,
-          total_rows: existingAssignments.length,
-          conflict_rows: conflictRows
-        });
 
         if (conflictRows.length > 0) {
           const conflict = conflictRows[0];
           const existingMaKh = String(conflict.ma_kh || "").trim();
           const existingIdNv = normalizeKiotStaffId(conflict.id_nv);
           const existingTenNv = String(conflict.ten_nv || existingIdNv || "").trim();
-          const existingId = conflict.id || makeAssignmentId(existingMaKh, existingIdNv);
+          const existingId = String(conflict.id || makeAssignmentId(existingMaKh, existingIdNv) || "").trim();
 
-          const conflictListHtml = conflictRows.slice(0, 5).map(function (row) {
+          const conflictListHtml = conflictRows.slice(0, 8).map(function (row) {
             const rowId = row.id || makeAssignmentId(row.ma_kh, row.id_nv);
             return `• <b>${escapeHtml(rowId || "Không rõ")}</b> — ${escapeHtml(row.ma_kh || "")}/${escapeHtml(row.ten_nv || row.id_nv || "")}`;
           }).join("<br>");
 
-          await showAssignDebugStep("Chuẩn bị mở popup xác nhận vì hộp thoại bị trùng với ID khác.", "error", 900);
+          await showAssignDebugStep(
+            "Tìm thấy ID khác new_id. Bắt buộc hỏi trước khi gán.\n" +
+              "new_id = " + newAssignmentId + "\n" +
+              "ID khác = " + conflictRows.map(function (item) {
+                return item.id || makeAssignmentId(item.ma_kh, item.id_nv);
+              }).join(", "),
+            "error",
+            350
+          );
 
           const ok = await showAssignConfirm(
             `Cuộc hội thoại <b>${escapeHtml(conversationId)}</b> đã được gán cho dòng khác rồi.<br><br>
@@ -2375,11 +2370,11 @@
               buttonEl.disabled = false;
               buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
             }
-            await showAssignDebugStep("Anh bấm Cancel: dừng code, không gửi webhook.", "error", 1000);
+            await showAssignDebugStep("Anh bấm Cancel: dừng code, không gửi webhook.", "error", 350);
             return;
           }
 
-          await showAssignDebugStep("Anh bấm OK: đi tiếp với action sửa gán mã KH.", "ok", 1000);
+          await showAssignDebugStep("Anh bấm OK: đi tiếp với action sửa gán mã KH.", "ok", 350);
 
           action = "sua_gan_makh";
           actionReason = "sua_hoi_thoai_da_co";
@@ -2978,17 +2973,18 @@
         return;
       }
 
-      // Dùng select("*") để tránh lỗi đăng nhập/load nhân viên khi bảng thiếu cột phụ
-      // như admin, dien_thoai, hoặc khi tên cột thay đổi nhẹ. Phần bắt buộc vẫn là ma_nv + id_nv.
       const { data, error } = await supabaseClient
         .from(TABLE_NHAN_VIEN)
-        .select("*");
+        .select("ma_nv, id_nv, ten_nv")
+        .not("id_nv", "is", null)
+        .not("ma_nv", "is", null)
+        .order("ten_nv", { ascending: true });
 
       if (error) {
         console.error("Lỗi tải nhân viên:", error);
 
         if (typeof showNotice === "function") {
-          showNotice("Lỗi tải nhân viên: " + (error.message || JSON.stringify(error)), "error", 10000);
+          showNotice("Lỗi tải nhân viên: " + (error.message || JSON.stringify(error)), "error", 3500);
         }
 
         return;
@@ -3000,29 +2996,19 @@
           const idNv = normalizeKiotStaffId(item.id_nv);
 
           return {
-            // ma_nv là mã đăng nhập / mã nội bộ.
+            // ma_nv là mã đăng nhập / mã nội bộ để lưu vào kv_khachhang.ma_nv.
             ma_nv: maNv,
 
-            // id_nv là ID nhân viên KiotViet, dùng để gán hộp thoại.
+            // id_nv là ID nhân viên KiotViet, chỉ dùng để lọc và gửi kèm webhook.
             id_nv: idNv,
 
-            ten_nv: String(item.ten_nv || item.name || maNv || idNv || "").trim()
+            ten_nv: String(item.ten_nv || maNv || idNv || "").trim()
           };
         })
         .filter(function (item) {
+          // Chỉ hiện nhân viên đã có cả mã đăng nhập ma_nv và ID KiotViet id_nv.
           return item.ma_nv !== "" && item.id_nv !== "";
-        })
-        .sort(function (a, b) {
-          return String(a.ten_nv || "").localeCompare(String(b.ten_nv || ""), "vi");
         });
-
-      if (staffRows.length === 0) {
-        showNotice(
-          "Không tải được danh sách nhân viên có đủ ma_nv và id_nv. Kiểm tra bảng " + TABLE_NHAN_VIEN + ".",
-          "error",
-          10000
-        );
-      }
 
       renderStaffDropdown();
 
@@ -3923,49 +3909,19 @@
       popupLoginBtn.disabled = true;
       popupLoginBtn.textContent = "Đang đăng nhập...";
 
-      let data = null;
-      let error = null;
-
-      // Đăng nhập chính bằng ma_nv. Dùng select("*") để không lỗi nếu bảng thiếu cột phụ.
-      try {
-        const result = await supabaseClient
-          .from(TABLE_NHAN_VIEN)
-          .select("*")
-          .eq("ma_nv", maNv)
-          .eq("mat_khau", matKhau)
-          .maybeSingle();
-
-        data = result.data;
-        error = result.error;
-      } catch (err) {
-        error = err;
-      }
-
-      // Nếu không thấy bằng ma_nv, thử thêm dien_thoai nếu bảng có cột đó.
-      // Nếu bảng không có dien_thoai thì bỏ qua lỗi fallback, không làm hỏng đăng nhập ma_nv.
-      if (!data && !error) {
-        try {
-          const phoneResult = await supabaseClient
-            .from(TABLE_NHAN_VIEN)
-            .select("*")
-            .eq("dien_thoai", maNv)
-            .eq("mat_khau", matKhau)
-            .maybeSingle();
-
-          if (!phoneResult.error && phoneResult.data) {
-            data = phoneResult.data;
-          }
-        } catch (fallbackError) {
-          console.warn("Bỏ qua đăng nhập bằng điện thoại vì cột dien_thoai có thể không tồn tại:", fallbackError);
-        }
-      }
+      const { data, error } = await supabaseClient
+        .from(TABLE_NHAN_VIEN)
+        .select("ma_nv, mat_khau, ten_nv, dien_thoai, hoat_dong, admin")
+        .or(`ma_nv.eq.${maNv},dien_thoai.eq.${maNv}`)
+        .eq("mat_khau", matKhau)
+        .maybeSingle();
 
       popupLoginBtn.disabled = false;
       popupLoginBtn.textContent = "Đăng nhập";
 
       if (error) {
         console.error("Lỗi đăng nhập:", error);
-        popupLoginMessage.textContent = "Lỗi kiểm tra đăng nhập: " + (error.message || JSON.stringify(error));
+        popupLoginMessage.textContent = "Lỗi kiểm tra đăng nhập.";
         return;
       }
 
@@ -3980,10 +3936,9 @@
       }
 
       currentUser = {
-        ma_nv: String(data.ma_nv || maNv).trim(),
-        id_nv: normalizeKiotStaffId(data.id_nv),
-        ten_nv: String(data.ten_nv || data.name || data.ma_nv || maNv).trim(),
-        admin: data.admin === true || data.admin === "true" || data.quyen === "admin",
+        ma_nv: data.ma_nv,
+        ten_nv: data.ten_nv,
+        admin: data.admin === true,
         login_at: new Date().toISOString()
       };
 
