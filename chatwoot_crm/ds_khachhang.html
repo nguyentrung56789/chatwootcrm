@@ -1724,7 +1724,7 @@
       return raw ? raw : null;
     }
 
-    function showNotice(message, type = "ok", timeoutMs = 10000) {
+    function showNotice(message, type = "ok", timeoutMs = 30000) {
       noticeBox.classList.remove("hidden");
       noticeBox.innerHTML = escapeHtml(message);
       noticeBox.style.whiteSpace = "pre-wrap";
@@ -1753,8 +1753,8 @@
     }
 
 
-    async function showAssignDebugStep(message, type = "ok", delayMs = 350) {
-      showNotice("[DEBUG GÁN KH] " + message, type, 10000);
+    async function showAssignDebugStep(message, type = "ok", delayMs = 3000) {
+      showNotice("[DEBUG GÁN KH] " + message, type, 30000);
       console.log("[DEBUG GÁN KH]", message);
       if (delayMs > 0) {
         await new Promise(function (resolve) {
@@ -1976,18 +1976,18 @@
       const cid = normalizeConversationId(conversationId);
 
       if (!cid) {
-        await showAssignDebugStep("Không có conversation_id để kiểm tra.", "error", 350);
+        await showAssignDebugStep("Không có conversation_id để kiểm tra.", "error", 3000);
         return [];
       }
 
       if (!SUPABASE_REST_URL || !SUPABASE_REST_ANON) {
-        await showAssignDebugStep("Thiếu cấu hình Supabase REST URL/ANON. Dừng gán để tránh trùng hộp thoại.", "error", 350);
+        await showAssignDebugStep("Thiếu cấu hình Supabase REST URL/ANON. Dừng gán để tránh trùng hộp thoại.", "error", 3000);
         throw new Error("Thiếu SUPABASE_REST_URL hoặc SUPABASE_REST_ANON khi kiểm tra conversation_id.");
       }
 
       const numericConversationId = Number(cid);
       if (!Number.isFinite(numericConversationId)) {
-        await showAssignDebugStep("conversation_id không hợp lệ: " + cid, "error", 350);
+        await showAssignDebugStep("conversation_id không hợp lệ: " + cid, "error", 3000);
         throw new Error("conversation_id không hợp lệ: " + cid);
       }
 
@@ -2003,7 +2003,7 @@
       await showAssignDebugStep(
         "Bắt đầu HTTP check table kv_khachhang_nhanvien\nconversation_id = " + numericConversationId,
         "ok",
-        350
+        3000
       );
 
       console.log("[DEBUG GÁN KH] HTTP CHECK URL:", url);
@@ -2011,7 +2011,7 @@
       await showAssignDebugStep(
         "URL check Supabase:\n" + url,
         "ok",
-        650
+        3000
       );
 
       const resp = await fetch(url, {
@@ -2040,7 +2040,7 @@
       try {
         rows = text ? JSON.parse(text) : [];
       } catch (error) {
-        await showAssignDebugStep("Không parse được JSON Supabase. Dừng gán.", "error", 350);
+        await showAssignDebugStep("Không parse được JSON Supabase. Dừng gán.", "error", 3000);
         throw new Error("Không parse được kết quả HTTP check conversation_id: " + text);
       }
 
@@ -2068,7 +2068,7 @@
         "HTTP check trả về " + activeRows.length + " dòng active.\nID tìm thấy: " +
           (activeRows.length ? activeRows.map(function (row) { return row.id; }).join(", ") : "không có"),
         activeRows.length > 0 ? "error" : "ok",
-        350
+        3000
       );
 
       return activeRows;
@@ -2418,7 +2418,7 @@
               buttonEl.disabled = false;
               buttonEl.textContent = staffList && staffList.length > 1 ? "Chọn NV... ▾" : "Gán KH";
             }
-            await showAssignDebugStep("Anh bấm Cancel: dừng code, không gửi webhook.", "error", 350);
+            await showAssignDebugStep("Anh bấm Cancel: dừng code, không gửi webhook.", "error", 3000);
             return;
           }
 
@@ -2438,7 +2438,7 @@
           existingAssignmentId = existingAssignments[0].id || newAssignmentId;
         }
 
-        await showAssignDebugStep("Chuẩn bị gửi webhook với action = " + action, "ok", 900);
+        await showAssignDebugStep("Chuẩn bị gửi webhook với action = " + action, "ok", 3000);
 
         const response = await sendCustomerWebhook(
           action,
@@ -2496,7 +2496,7 @@
           buttonEl.textContent = "Gán KH";
         }
 
-        showNotice("Lỗi gán KH: " + (error.message || JSON.stringify(error)), "error", 3500);
+        showNotice("Lỗi gán KH: " + (error.message || JSON.stringify(error)), "error", 30000);
       }
     }
 
@@ -2577,7 +2577,7 @@
         closeConfirmAssignModal();
       } catch (error) {
         console.error("Lỗi đổi mã KH:", error);
-        showNotice("Lỗi đổi mã KH: " + (error.message || JSON.stringify(error)), "error", 3500);
+        showNotice("Lỗi đổi mã KH: " + (error.message || JSON.stringify(error)), "error", 30000);
       } finally {
         confirmAssignOkBtn.disabled = false;
         confirmAssignOkBtn.textContent = "Đồng ý thay đổi";
@@ -2928,7 +2928,7 @@
         closeZaloChat();
       } catch (error) {
         console.error("Lỗi gửi Zalo chat:", error);
-        showNotice("Lỗi gửi Zalo chat: " + (error.message || JSON.stringify(error)), "error", 3500);
+        showNotice("Lỗi gửi Zalo chat: " + (error.message || JSON.stringify(error)), "error", 30000);
       } finally {
         zaloChatSendBtn.disabled = false;
         zaloChatSendBtn.textContent = "Gửi";
@@ -3032,7 +3032,7 @@
         console.error("Lỗi tải nhân viên:", error);
 
         if (typeof showNotice === "function") {
-          showNotice("Lỗi tải nhân viên: " + (error.message || JSON.stringify(error)), "error", 3500);
+          showNotice("Lỗi tải nhân viên: " + (error.message || JSON.stringify(error)), "error", 30000);
         }
 
         return;
@@ -3644,7 +3644,7 @@
         showNotice("Đã làm mới dữ liệu.");
       } catch (error) {
         console.error("Lỗi làm mới:", error);
-        showNotice("Lỗi làm mới: " + (error.message || JSON.stringify(error)), "error", 3500);
+        showNotice("Lỗi làm mới: " + (error.message || JSON.stringify(error)), "error", 30000);
       } finally {
         if (refreshBtn) {
           refreshBtn.disabled = false;
