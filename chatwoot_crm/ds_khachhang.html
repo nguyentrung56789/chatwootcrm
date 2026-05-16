@@ -1735,10 +1735,14 @@
     }
 
 
-    async function showAssignDebugStep(message, type = "ok", delayMs = 0) {
-      // Đã bỏ toàn bộ thông báo test trên màn hình.
-      // Chỉ ghi console để khi cần vẫn kiểm tra được bằng F12.
-      console.log("[GÁN KH]", type, message);
+    async function showAssignDebugStep(message, type = "ok", delayMs = 850) {
+      showNotice("[DEBUG GÁN KH] " + message, type, 10000);
+      console.log("[DEBUG GÁN KH]", message);
+      if (delayMs > 0) {
+        await new Promise(function (resolve) {
+          setTimeout(resolve, delayMs);
+        });
+      }
     }
 
     function getCustomerByMaKh(maKh) {
@@ -1954,28 +1958,59 @@
       const cid = normalizeConversationId(conversationId);
 
       if (!cid) {
+        await showAssignDebugStep("Không có conversation_id để kiểm tra.", "error", 900);
         return [];
       }
 
-      if (!supabaseClient) {
-        throw new Error("Supabase client chưa sẵn sàng khi kiểm tra conversation_id.");
+      if (!SUPABASE_REST_URL || !SUPABASE_REST_ANON) {
+        await showAssignDebugStep("Thiếu cấu hình Supabase REST URL/ANON nên không thể kiểm tra trùng. Dừng gán.", "error", 1200);
+        throw new Error("Thiếu SUPABASE_REST_URL hoặc SUPABASE_REST_ANON khi kiểm tra conversation_id.");
       }
 
-      const queryValue = /^\d+(\.\d+)?$/.test(String(cid)) ? Number(cid) : String(cid);
+      const url =
+        SUPABASE_REST_URL.replace(/\/$/, "") +
+        "/rest/v1/" +
+        TABLE_KHACH_HANG_NHANVIEN +
+        "?select=id,ma_kh,id_nv,conversation_id,chatwoot_contact_id,hoat_dong" +
+        "&conversation_id=eq." +
+        encodeURIComponent(cid) +
+        "&limit=100";
 
-      const { data, error } = await supabaseClient
-        .from(TABLE_KHACH_HANG_NHANVIEN)
-        .select("id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong")
-        .eq("conversation_id", queryValue)
-        .order("id", { ascending: true })
-        .range(0, 499);
+      await showAssignDebugStep("Bắt đầu kiểm tra table " + TABLE_KHACH_HANG_NHANVIEN + " với conversation_id = " + cid, "ok", 900);
 
-      if (error) {
-        console.warn("Lỗi kiểm tra conversation_id trong " + TABLE_KHACH_HANG_NHANVIEN + ":", error);
-        throw error;
+      console.log("HTTP CHECK TẤT CẢ DÒNG TRÙNG HỘP THOẠI " + TABLE_KHACH_HANG_NHANVIEN + ":", {
+        conversation_id: cid,
+        url: url
+      });
+
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: {
+          apikey: SUPABASE_REST_ANON,
+          Authorization: "Bearer " + SUPABASE_REST_ANON,
+          Accept: "application/json"
+        }
+      });
+
+      const text = await resp.text();
+
+      if (!resp.ok) {
+        console.warn("HTTP check conversation_id lỗi:", resp.status, text);
+        await showAssignDebugStep("HTTP check Supabase lỗi " + resp.status + ". Dừng gán để tránh trùng hộp thoại.", "error", 1500);
+        throw new Error("HTTP check conversation_id lỗi: " + resp.status + " - " + text);
       }
 
-      const rows = data || [];
+      let rows = [];
+
+      try {
+        rows = text ? JSON.parse(text) : [];
+      } catch (error) {
+        console.warn("Không parse được kết quả HTTP check conversation_id:", text);
+        await showAssignDebugStep("Không đọc được kết quả Supabase. Dừng gán để tránh trùng hộp thoại.", "error", 1500);
+        throw new Error("Không parse được kết quả HTTP check conversation_id.");
+      }
+
+      await showAssignDebugStep("HTTP check trả về " + rows.length + " dòng có conversation_id này.", rows.length > 0 ? "error" : "ok", 1000);
 
       const activeRows = rows
         .filter(function (row) {
@@ -1997,10 +2032,13 @@
           };
         });
 
-      console.log("CHECK GÁN KH:", {
-        table: TABLE_KHACH_HANG_NHANVIEN,
+      if (rows.length !== activeRows.length) {
+        await showAssignDebugStep("Bỏ qua " + (rows.length - activeRows.length) + " dòng hoat_dong=false. Còn " + activeRows.length + " dòng active.", "ok", 900);
+      }
+
+      console.log("KẾT QUẢ HTTP CHECK TẤT CẢ DÒNG TRÙNG HỘP THOẠI:", {
         conversation_id: cid,
-        query_value: queryValue,
+        so_dong: activeRows.length,
         rows: activeRows
       });
 
@@ -2397,8 +2435,8 @@
 
         // Cập nhật lại dữ liệu trên dòng hiện tại để Zalo chat dùng được ngay sau khi gán.
         markAssignButtonDone(buttonEl, row, conversationId, contactId);
-        console.log(
-          "KẾT QUẢ GÁN KH:",
+
+        showNotice(
           getWebhookDisplayMessage(
             result,
             action === "sua_gan_makh"
@@ -3081,7 +3119,8 @@
 
     function getCustomerStaffIds(maKh) {
       const key = String(maKh || "").trim();
-      const list = customerStaffMap[key] || [];
+      const hasMapKey = Object.prototype.hasOwnProperty.call(customerStaffMap, key);
+      const list = hasMapKey ? (customerStaffMap[key] || []) : [];
 
       const idsFromMap = list
         .map(function (item) {
@@ -3091,7 +3130,10 @@
           return idNv !== "";
         });
 
-      if (idsFromMap.length > 0) {
+      // Nếu customerStaffMap đã có key của khách này thì đây là trạng thái mới nhất
+      // trên giao diện. Kể cả mảng rỗng cũng phải trả về rỗng, không fallback về
+      // customer.ma_nv / cache cũ, tránh lỗi tắt nhân viên rồi bị tự thêm lại.
+      if (hasMapKey) {
         return idsFromMap;
       }
 
@@ -3427,21 +3469,6 @@
         return;
       }
 
-      const oldList = getCustomerStaffIds(maKhText).map(function (idNv) {
-        return normalizeKiotStaffId(idNv);
-      }).filter(Boolean);
-
-      const oldSet = new Set(oldList);
-      const newSet = new Set(idNvList);
-
-      const idsToAdd = idNvList.filter(function (idNv) {
-        return !oldSet.has(idNv);
-      });
-
-      const idsToDisable = oldList.filter(function (idNv) {
-        return !newSet.has(idNv);
-      });
-
       const found = getCustomerByMaKh(maKhText);
 
       // TẠM THỜI: chỉ cập nhật giao diện + cache, không lưu kv_khachhang_nhanvien.
@@ -3460,23 +3487,21 @@
       // Tạm thời chỉ gửi webhook, bỏ toàn bộ thao tác insert/update/delete Supabase.
       try {
         await sendCustomerWebhook(
-          "upsert_khachhang_nhanvien",
+          "set_khachhang_nhanvien",
           maKhText,
           null,
           {
             table: TABLE_KHACH_HANG_NHANVIEN,
             source: "staff_chip_editor",
-            mode: "webhook_only",
+            mode: "replace_all",
             skip_supabase: true,
 
-            // Theo yêu cầu tạm thời: trả mảng ID nhân viên KiotViet trong field ma_nv
-            // Ví dụ: ma_nv: ["1234546", "345678", "223456"]
+            // Trạng thái cuối cùng sau khi anh bật/tắt chip nhân viên.
+            // n8n chỉ dùng danh sách này làm nguồn chính:
+            // - Tắt toàn bộ dòng cũ của ma_kh
+            // - Upsert lại các id_nv trong id_nv_list với hoat_dong=true
             ma_nv: idNvList,
-
-            // Giữ thêm field rõ nghĩa để n8n nào đang bắt id_nv_list vẫn không bị đứt.
-            id_nv_list: idNvList,
-            id_nv_added: idsToAdd,
-            id_nv_removed: idsToDisable
+            id_nv_list: idNvList
           },
           { requireConversation: false, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
         );
@@ -3485,8 +3510,7 @@
           ma_kh: maKhText,
           ma_nv: idNvList,
           id_nv_list: idNvList,
-          id_nv_added: idsToAdd,
-          id_nv_removed: idsToDisable
+          mode: "replace_all"
         });
 
         showNotice("Đã gửi webhook người phụ trách cho " + maKhText);
