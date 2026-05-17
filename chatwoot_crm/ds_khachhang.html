@@ -1735,14 +1735,10 @@
     }
 
 
-    async function showAssignDebugStep(message, type = "ok", delayMs = 850) {
-      showNotice("[DEBUG GÁN KH] " + message, type, 10000);
+    async function showAssignDebugStep(message, type = "ok", delayMs = 0) {
+      // Ẩn toàn bộ debug gán KH trên giao diện.
+      // Chỉ giữ console để soi kỹ thuật khi cần, không gọi showNotice().
       console.log("[DEBUG GÁN KH]", message);
-      if (delayMs > 0) {
-        await new Promise(function (resolve) {
-          setTimeout(resolve, delayMs);
-        });
-      }
     }
 
     function getCustomerByMaKh(maKh) {
@@ -2575,8 +2571,8 @@
     function openZaloChat(maKh, buttonEl) {
       const customer = getCustomerByMaKh(maKh);
 
-      if (!customer || !customer.conversation_id) {
-        showNotice("Khách này chưa có hội thoại Zalo.", "error", 2200);
+      if (!customer) {
+        showNotice("Không tìm thấy khách hàng để mở Zalo chat.", "error", 2200);
         return;
       }
 
@@ -4228,6 +4224,9 @@
           .map(function (staff) { return staff.ten_nv || staff.id_nv; })
           .join(", ");
         const assignBtnClass = rowStaffList.length > 1 ? "assign-btn has-staff-dropdown" : "assign-btn";
+        const hasMaNv = rowStaffList.some(function (staff) {
+          return normalizeKiotStaffId(staff.id_nv);
+        });
 
         return `
           <tr>
@@ -4243,7 +4242,7 @@
                 <button class="${assignBtnClass}" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', this)">
                   Gán KH
                 </button>
-                ${item.conversation_id ? `
+                ${hasMaNv ? `
                   <button
                     class="zalo-chat-btn"
                     title="Zalo chat"
