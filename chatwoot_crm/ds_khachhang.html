@@ -1328,7 +1328,6 @@
 
   <script>
     const LOGIN_STORAGE_KEY = "chatwoot_crm_user";
-    const STAFF_ASSIGNMENT_CACHE_KEY = "ds_khachhang_staff_assignment_cache_v2";
     function getConfiguredTableName(configName, fallbackTable) {
       try {
         if (typeof window.getConfig === "function") {
@@ -1347,7 +1346,6 @@
 
     const TABLE_NHAN_VIEN = getConfiguredTableName("index", "kv_nhan_vien");
     const TABLE_KHACH_HANG = getConfiguredTableName("kh", "kv_khachhang");
-    const TABLE_KHACH_HANG_NHANVIEN = getConfiguredTableName("khnv", "kv_khachhang_nhanvien");
     const UPDATE_CHATWOOT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
     const ZALO_CHAT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/my-zalo-chatwoot";
 
@@ -1367,7 +1365,6 @@
     let totalRows = 0;
     let isLoadingCustomers = false;
     let staffRows = [];
-    let customerStaffMap = {};
     let activeStaffPicker = null;
     let pendingStaffChanges = {};
     let chatwootContext = null;
@@ -1945,102 +1942,44 @@
       return text ? text : null;
     }
     function makeAssignmentId(maKh, idNv) {
-      // Bản đơn nhân viên: mỗi khách hàng chỉ có 1 dòng gán.
-      // ID chuẩn dùng ma_kh để tránh sinh nhiều dòng ma_kh_id_nv.
-      const cleanMaKh = String(maKh || "").trim();
-      return cleanMaKh;
+      // Bản kv_khachhang: mỗi ma_kh chỉ có 1 nhân viên và 1 conversation_id.
+      return String(maKh || "").trim();
     }
-
 
     async function findAssignmentsByConversationId(conversationId) {
       const cid = normalizeConversationId(conversationId);
 
       if (!cid) {
-        await showAssignDebugStep("Không có conversation_id để kiểm tra.", "error", 900);
         return [];
       }
 
-      if (!SUPABASE_REST_URL || !SUPABASE_REST_ANON) {
-        await showAssignDebugStep("Thiếu cấu hình Supabase REST URL/ANON nên không thể kiểm tra trùng. Dừng gán.", "error", 1200);
-        throw new Error("Thiếu SUPABASE_REST_URL hoặc SUPABASE_REST_ANON khi kiểm tra conversation_id.");
+      if (!supabaseClient) {
+        throw new Error("Supabase chưa sẵn sàng khi kiểm tra conversation_id.");
       }
 
-      const url =
-        SUPABASE_REST_URL.replace(/\/$/, "") +
-        "/rest/v1/" +
-        TABLE_KHACH_HANG_NHANVIEN +
-        "?select=id,ma_kh,id_nv,conversation_id,chatwoot_contact_id,hoat_dong" +
-        "&conversation_id=eq." +
-        encodeURIComponent(cid) +
-        "&limit=100";
+      const { data, error } = await supabaseClient
+        .from(TABLE_KHACH_HANG)
+        .select("ma_kh, ma_nv, conversation_id, chatwoot_contact_id")
+        .eq("conversation_id", cid)
+        .limit(100);
 
-      await showAssignDebugStep("Bắt đầu kiểm tra table " + TABLE_KHACH_HANG_NHANVIEN + " với conversation_id = " + cid, "ok", 900);
+      if (error) {
+        throw new Error("Không kiểm tra được conversation_id trong kv_khachhang: " + (error.message || JSON.stringify(error)));
+      }
 
-      console.log("HTTP CHECK TẤT CẢ DÒNG TRÙNG HỘP THOẠI " + TABLE_KHACH_HANG_NHANVIEN + ":", {
-        conversation_id: cid,
-        url: url
+      return (data || []).map(function (row) {
+        const staff = getStaffByAnyCode(row.ma_nv);
+        return {
+          id: row.ma_kh || "",
+          ma_kh: row.ma_kh || "",
+          id_nv: staff ? normalizeKiotStaffId(staff.id_nv) : normalizeKiotStaffId(row.ma_nv),
+          ma_nv: normalizeNullableMaNv(row.ma_nv),
+          ten_nv: staff ? staff.ten_nv : String(row.ma_nv || ""),
+          conversation_id: normalizeConversationId(row.conversation_id),
+          chatwoot_contact_id: row.chatwoot_contact_id || null,
+          raw: row
+        };
       });
-
-      const resp = await fetch(url, {
-        method: "GET",
-        headers: {
-          apikey: SUPABASE_REST_ANON,
-          Authorization: "Bearer " + SUPABASE_REST_ANON,
-          Accept: "application/json"
-        }
-      });
-
-      const text = await resp.text();
-
-      if (!resp.ok) {
-        console.warn("HTTP check conversation_id lỗi:", resp.status, text);
-        await showAssignDebugStep("HTTP check Supabase lỗi " + resp.status + ". Dừng gán để tránh trùng hộp thoại.", "error", 1500);
-        throw new Error("HTTP check conversation_id lỗi: " + resp.status + " - " + text);
-      }
-
-      let rows = [];
-
-      try {
-        rows = text ? JSON.parse(text) : [];
-      } catch (error) {
-        console.warn("Không parse được kết quả HTTP check conversation_id:", text);
-        await showAssignDebugStep("Không đọc được kết quả Supabase. Dừng gán để tránh trùng hộp thoại.", "error", 1500);
-        throw new Error("Không parse được kết quả HTTP check conversation_id.");
-      }
-
-      await showAssignDebugStep("HTTP check trả về " + rows.length + " dòng có conversation_id này.", rows.length > 0 ? "error" : "ok", 1000);
-
-      const activeRows = rows
-        .filter(function (row) {
-          return row && row.hoat_dong !== false;
-        })
-        .map(function (row) {
-          const staff = getStaffByIdNv(row.id_nv);
-          const assignmentId = row.id || makeAssignmentId(row.ma_kh, row.id_nv);
-
-          return {
-            id: assignmentId,
-            ma_kh: row.ma_kh || "",
-            id_nv: normalizeKiotStaffId(row.id_nv),
-            ten_nv: row.ten_nv || (staff ? staff.ten_nv : String(row.id_nv || "")),
-            conversation_id: normalizeConversationId(row.conversation_id),
-            chatwoot_contact_id: row.chatwoot_contact_id || null,
-            hoat_dong: row.hoat_dong,
-            raw: row
-          };
-        });
-
-      if (rows.length !== activeRows.length) {
-        await showAssignDebugStep("Bỏ qua " + (rows.length - activeRows.length) + " dòng hoat_dong=false. Còn " + activeRows.length + " dòng active.", "ok", 900);
-      }
-
-      console.log("KẾT QUẢ HTTP CHECK TẤT CẢ DÒNG TRÙNG HỘP THOẠI:", {
-        conversation_id: cid,
-        so_dong: activeRows.length,
-        rows: activeRows
-      });
-
-      return activeRows;
     }
 
     async function findAssignmentByConversationId(conversationId) {
@@ -2050,46 +1989,31 @@
 
     async function findAssignmentByCustomerAndStaff(maKh, idNv) {
       const cleanMaKh = String(maKh || "").trim();
-      const cleanIdNv = normalizeKiotStaffId(idNv);
-
-      if (!cleanMaKh || !cleanIdNv || !supabaseClient) {
+      if (!cleanMaKh || !supabaseClient) {
         return null;
       }
 
-      try {
-        const { data, error } = await supabaseClient
-          .from(TABLE_KHACH_HANG_NHANVIEN)
-          .select("id, ma_kh, id_nv, conversation_id, chatwoot_contact_id, hoat_dong")
-          .eq("ma_kh", cleanMaKh)
-          .eq("id_nv", cleanIdNv)
-          .eq("hoat_dong", true)
-          .limit(1);
+      const { data, error } = await supabaseClient
+        .from(TABLE_KHACH_HANG)
+        .select("ma_kh, ma_nv, conversation_id, chatwoot_contact_id")
+        .eq("ma_kh", cleanMaKh)
+        .limit(1);
 
-        if (error) {
-          console.warn("Không kiểm tra được ma_kh + id_nv trong kv_khachhang_nhanvien:", error);
-          return null;
-        }
-
-        if (!data || data.length === 0) {
-          return null;
-        }
-
-        const row = data[0];
-        const staff = getStaffByIdNv(row.id_nv);
-
-        return {
-          id: row.id,
-          ma_kh: row.ma_kh || "",
-          id_nv: normalizeKiotStaffId(row.id_nv),
-          ten_nv: staff ? staff.ten_nv : String(row.id_nv || ""),
-          conversation_id: normalizeConversationId(row.conversation_id),
-          chatwoot_contact_id: row.chatwoot_contact_id || null,
-          hoat_dong: row.hoat_dong
-        };
-      } catch (error) {
-        console.warn("Lỗi khi kiểm tra ma_kh + id_nv trong kv_khachhang_nhanvien:", error);
+      if (error || !data || data.length === 0) {
         return null;
       }
+
+      const row = data[0];
+      const staff = getStaffByAnyCode(row.ma_nv);
+      return {
+        id: row.ma_kh || "",
+        ma_kh: row.ma_kh || "",
+        id_nv: staff ? normalizeKiotStaffId(staff.id_nv) : normalizeKiotStaffId(row.ma_nv),
+        ma_nv: normalizeNullableMaNv(row.ma_nv),
+        ten_nv: staff ? staff.ten_nv : String(row.ma_nv || ""),
+        conversation_id: normalizeConversationId(row.conversation_id),
+        chatwoot_contact_id: row.chatwoot_contact_id || null
+      };
     }
 
     async function showAssignConfirm(message, title = "Xác nhận thay đổi") {
@@ -2225,7 +2149,7 @@
           cleanMaKh,
           selectedIdNv,
           {
-            table: TABLE_KHACH_HANG_NHANVIEN,
+            table: TABLE_KHACH_HANG,
             source: "assign_customer_button",
             mode: "single_staff",
             assignment_id: newAssignmentId,
@@ -2255,7 +2179,6 @@
           row.nhan_vien_ids = [selectedIdNv];
         }
 
-        customerStaffMap[cleanMaKh] = [{ id_nv: selectedIdNv, hoat_dong: true }];
 
         markAssignButtonDone(buttonEl, row, conversationId, contactId);
 
@@ -2849,196 +2772,66 @@
       return found ? found.ten_nv : maNv;
     }
 
-    function parseStaffIdList(value) {
-      if (Array.isArray(value)) {
-        return Array.from(new Set(value.map(function (item) {
-          return normalizeKiotStaffId(item);
-        }).filter(Boolean)));
+    function getStaffByAnyCode(value) {
+      const code = normalizeKiotStaffId(value).toLowerCase();
+      if (!code) {
+        return null;
       }
 
-      const raw = String(value || "").trim();
-      if (!raw) {
-        return [];
-      }
-
-      if (raw.startsWith("[") && raw.endsWith("]")) {
-        try {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed)) {
-            return parseStaffIdList(parsed);
-          }
-        } catch (error) {
-          console.warn("Không parse được mảng ma_nv:", error);
-        }
-      }
-
-      return Array.from(new Set(raw.split(/[;,]/).map(function (item) {
-        return normalizeKiotStaffId(item);
-      }).filter(Boolean)));
+      return staffRows.find(function (staff) {
+        return normalizeKiotStaffId(staff.id_nv).toLowerCase() === code ||
+               String(staff.ma_nv || "").trim().toLowerCase() === code;
+      }) || null;
     }
+
     function getCustomerStaffIds(maKh) {
-      const key = String(maKh || "").trim();
-
-      if (Object.prototype.hasOwnProperty.call(customerStaffMap, key)) {
-        const row = customerStaffMap[key] && customerStaffMap[key][0] ? customerStaffMap[key][0] : null;
-        const idNv = row ? normalizeKiotStaffId(row.id_nv) : "";
-        return idNv ? [idNv] : [];
-      }
-
-      const customer = getCustomerByMaKh(key);
+      const customer = getCustomerByMaKh(maKh);
       if (!customer) {
         return [];
       }
 
-      const candidates = [
-        customer.id_nv,
-        customer.ma_nv,
-        Array.isArray(customer.nhan_vien_ids) ? customer.nhan_vien_ids[0] : "",
-        parseStaffIdList(customer.nhan_vien_ids)[0],
-        parseStaffIdList(customer.ma_nv)[0]
-      ];
-
-      for (const value of candidates) {
-        const idNv = normalizeKiotStaffId(value);
-        if (idNv) {
-          return [idNv];
-        }
-      }
-
-      return [];
-    }
-    function getCustomerStaffRows(maKh) {
-      const idNv = getCustomerStaffIds(maKh)[0] || "";
-
-      if (!idNv) {
+      const savedCode = normalizeKiotStaffId(customer.ma_nv || customer.id_nv);
+      if (!savedCode) {
         return [];
       }
 
-      const staff = getStaffByIdNv(idNv);
+      const staff = getStaffByAnyCode(savedCode);
+      return [staff ? normalizeKiotStaffId(staff.id_nv) : savedCode];
+    }
+
+    function getCustomerStaffRows(maKh) {
+      const customer = getCustomerByMaKh(maKh);
+      if (!customer) {
+        return [];
+      }
+
+      const savedCode = normalizeKiotStaffId(customer.ma_nv || customer.id_nv);
+      if (!savedCode) {
+        return [];
+      }
+
+      const staff = getStaffByAnyCode(savedCode);
+      const idNv = staff ? normalizeKiotStaffId(staff.id_nv) : savedCode;
 
       return [{
         id_nv: idNv,
-        ma_nv: staff ? staff.ma_nv : idNv,
-        ten_nv: staff ? staff.ten_nv : idNv
+        ma_nv: staff ? staff.ma_nv : savedCode,
+        ten_nv: staff ? staff.ten_nv : savedCode
       }];
     }
 
-
-    function readStaffAssignmentCache() {
-      try {
-        const raw = localStorage.getItem(STAFF_ASSIGNMENT_CACHE_KEY);
-        const obj = raw ? JSON.parse(raw) : {};
-        return obj && typeof obj === "object" ? obj : {};
-      } catch (error) {
-        return {};
-      }
-    }
-
-    function writeStaffAssignmentCache(maKh, idNvList) {
-      const maKhText = String(maKh || "").trim();
-      if (!maKhText) {
-        return;
-      }
-
-      const cache = readStaffAssignmentCache();
-      const ids = Array.from(new Set((idNvList || [])
-        .map(function (idNv) { return normalizeKiotStaffId(idNv); })
-        .filter(Boolean)));
-
-      cache[maKhText] = {
-        ids: ids,
-        updated_at: new Date().toISOString()
-      };
-
-      try {
-        localStorage.setItem(STAFF_ASSIGNMENT_CACHE_KEY, JSON.stringify(cache));
-      } catch (error) {
-        console.warn("Không ghi được cache nhân viên phụ trách:", error);
-      }
-    }
-
-    function applyStaffAssignmentCache(maKhList) {
-      const cache = readStaffAssignmentCache();
-      const allowed = new Set((maKhList || []).map(function (maKh) {
-        return String(maKh || "").trim();
-      }).filter(Boolean));
-
-      Object.keys(cache).forEach(function (maKh) {
-        if (allowed.size > 0 && !allowed.has(maKh)) {
-          return;
-        }
-
-        const ids = Array.from(new Set(((cache[maKh] && cache[maKh].ids) || [])
-          .map(function (idNv) { return normalizeKiotStaffId(idNv); })
-          .filter(Boolean)));
-
-        customerStaffMap[maKh] = ids.map(function (idNv) {
-          return { id_nv: idNv, hoat_dong: true };
-        });
-      });
-    }
     async function loadCustomerStaffAssignments(maKhList) {
-      customerStaffMap = {};
-
-      if (!Array.isArray(maKhList) || maKhList.length === 0) {
-        return;
-      }
-
-      const uniqueMaKhList = Array.from(new Set(maKhList.filter(Boolean).map(String)));
-
-      if (uniqueMaKhList.length === 0) {
-        return;
-      }
-
-      applyStaffAssignmentCache(uniqueMaKhList);
-
-      if (!supabaseClient) {
-        customers.forEach(function (customer) {
-          customer.nhan_vien_ids = getCustomerStaffIds(customer.ma_kh);
-        });
-        return;
-      }
-
-      const { data, error } = await supabaseClient
-        .from(TABLE_KHACH_HANG_NHANVIEN)
-        .select("ma_kh, id_nv, hoat_dong, updated_at")
-        .in("ma_kh", uniqueMaKhList)
-        .eq("hoat_dong", true)
-        .order("updated_at", { ascending: false });
-
-      if (error) {
-        console.warn("Không tải được bảng nhân viên phụ trách:", error);
-        return;
-      }
-
-      (data || []).forEach(function (row) {
-        const maKh = String(row.ma_kh || "").trim();
-        const idNv = normalizeKiotStaffId(row.id_nv);
-
-        if (!maKh || !idNv) {
-          return;
-        }
-
-        // Bản đơn nhân viên: nếu dữ liệu cũ còn nhiều dòng, chỉ lấy dòng mới nhất/đầu tiên.
-        if (!customerStaffMap[maKh] || customerStaffMap[maKh].length === 0) {
-          customerStaffMap[maKh] = [{
-            id_nv: idNv,
-            hoat_dong: row.hoat_dong !== false
-          }];
-        }
-      });
-
-      applyStaffAssignmentCache(uniqueMaKhList);
-
+      // Không dùng bảng kv_khachhang_nhanvien nữa.
+      // Nhân viên phụ trách lấy trực tiếp từ kv_khachhang.ma_nv.
       customers.forEach(function (customer) {
-        const ids = getCustomerStaffIds(customer.ma_kh);
-        const idNv = ids[0] || "";
-        const staff = idNv ? getStaffByIdNv(idNv) : null;
+        const savedCode = normalizeKiotStaffId(customer.ma_nv || customer.id_nv);
+        const staff = getStaffByAnyCode(savedCode);
+        const idNv = staff ? normalizeKiotStaffId(staff.id_nv) : savedCode;
 
-        customer.nhan_vien_ids = idNv ? [idNv] : [];
         customer.id_nv = idNv || null;
-        customer.ma_nv = idNv || null;
-        customer.ten_nv = staff ? staff.ten_nv : null;
+        customer.ma_nv = savedCode || null;
+        customer.ten_nv = staff ? staff.ten_nv : (savedCode || null);
+        customer.nhan_vien_ids = idNv ? [idNv] : [];
       });
     }
 
@@ -3116,62 +2909,74 @@
     }
     async function saveCustomerStaffAssignment(maKh, selectedIdNv) {
       const maKhText = String(maKh || "").trim();
-      const idNv = Array.isArray(selectedIdNv)
-        ? normalizeKiotStaffId(selectedIdNv[0])
-        : normalizeKiotStaffId(selectedIdNv);
+      const idNv = normalizeKiotStaffId(selectedIdNv);
 
       if (!maKhText) {
         return;
       }
 
-      const found = getCustomerByMaKh(maKhText);
-      const staff = idNv ? getStaffByIdNv(idNv) : null;
-
-      customerStaffMap[maKhText] = idNv
-        ? [{ id_nv: idNv, hoat_dong: true }]
-        : [];
-
-      if (found) {
-        found.id_nv = idNv || null;
-        found.ma_nv = idNv || null;
-        found.ten_nv = staff ? staff.ten_nv : null;
-        found.nhan_vien_ids = idNv ? [idNv] : [];
+      if (!supabaseClient) {
+        showNotice("Supabase chưa sẵn sàng.", "error", 2500);
+        return;
       }
 
-      updateCustomerStaffEditorUI(maKhText);
-      writeStaffAssignmentCache(maKhText, idNv ? [idNv] : []);
-      renderCustomers();
+      const found = getCustomerByMaKh(maKhText);
+      const staff = idNv ? getStaffByAnyCode(idNv) : null;
+      const valueToSave = idNv || null;
 
       try {
+        const { error } = await supabaseClient
+          .from(TABLE_KHACH_HANG)
+          .update({ ma_nv: valueToSave })
+          .eq("ma_kh", maKhText);
+
+        if (error) {
+          throw error;
+        }
+
+        if (found) {
+          found.ma_nv = valueToSave;
+          found.id_nv = staff ? normalizeKiotStaffId(staff.id_nv) : valueToSave;
+          found.ten_nv = staff ? staff.ten_nv : null;
+          found.nhan_vien_ids = valueToSave ? [found.id_nv] : [];
+        }
+
+        updateCustomerStaffEditorUI(maKhText);
+        renderCustomers();
+
         await sendCustomerWebhook(
           "set_khachhang_nhanvien",
           maKhText,
-          idNv || null,
+          valueToSave,
           {
-            table: TABLE_KHACH_HANG_NHANVIEN,
-            source: "staff_single_editor",
-            mode: "single_staff",
-            skip_supabase: true,
-            id: idNv ? makeAssignmentId(maKhText, idNv) : null,
-            assignment_id: idNv ? makeAssignmentId(maKhText, idNv) : null,
-            id_nv: idNv || null,
-            selected_id_nv: idNv || null,
-            selected_ma_nv: staff ? (staff.ma_nv || idNv) : idNv || null,
-            selected_ten_nv: staff ? (staff.ten_nv || idNv) : ""
+            table: TABLE_KHACH_HANG,
+            source: "kv_khachhang_ma_nv_select",
+            mode: "single_staff_kv_khachhang_only",
+            id_nv: staff ? normalizeKiotStaffId(staff.id_nv) : valueToSave,
+            ma_nv: valueToSave,
+            selected_id_nv: staff ? normalizeKiotStaffId(staff.id_nv) : valueToSave,
+            selected_ma_nv: valueToSave,
+            selected_ten_nv: staff ? staff.ten_nv : ""
           },
           { requireConversation: false, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
-        );
+        ).catch(function (webhookError) {
+          console.warn("Webhook cập nhật nhân viên lỗi:", webhookError);
+        });
 
-        showNotice(idNv
-          ? "Đã gán 1 nhân viên phụ trách cho " + maKhText
-          : "Đã bỏ nhân viên phụ trách của " + maKhText
+        showNotice(valueToSave
+          ? "Đã cập nhật nhân viên phụ trách cho " + maKhText
+          : "Đã bỏ nhân viên phụ trách của " + maKhText,
+          "ok",
+          1800
         );
-      } catch (webhookError) {
-        console.warn("Webhook người phụ trách lỗi:", webhookError);
-        showNotice("Webhook người phụ trách lỗi: " + (webhookError.message || JSON.stringify(webhookError)), "error", 5000);
+      } catch (error) {
+        console.error("Lỗi lưu ma_nv vào kv_khachhang:", error);
+        showNotice("Lỗi lưu nhân viên: " + (error.message || JSON.stringify(error)), "error", 4500);
+        if (found) {
+          updateCustomerStaffEditorUI(maKhText);
+        }
       }
     }
-
 
     function updateFloatingSaveBar() {
       const count = Object.keys(pendingStaffChanges).length;
@@ -3514,7 +3319,6 @@
       localStorage.removeItem(LOGIN_STORAGE_KEY);
       currentUser = null;
       customers = [];
-      customerStaffMap = {};
       totalRows = 0;
       currentPage = 1;
       pendingStaffChanges = {};
