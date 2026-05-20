@@ -309,13 +309,14 @@
 
     .staff-cell-select {
       width: 100%;
-      height: 30px;
+      height: 34px;
       border: 1px solid #d1d5db;
       border-radius: 6px;
       background: #ffffff;
       color: #111827;
       font-size: 13px;
       padding: 0 6px;
+      cursor: pointer;
     }
 
     .staff-cell-select:focus {
@@ -3032,31 +3033,37 @@
       });
     }
 
-    function renderStaffChipContent(maKh) {
-      const row = getCustomerStaffRows(maKh)[0] || null;
+    function renderStaffSelect(maKh) {
+      const currentId = getCustomerStaffIds(maKh)[0] || "";
 
-      if (!row) {
-        return `<span class="staff-chip-placeholder">+ Chọn nhân viên</span>`;
-      }
+      const options = [
+        `<option value="">Chưa gán</option>`,
+        ...staffRows.map(function (staff) {
+          const idNv = normalizeKiotStaffId(staff.id_nv);
+          const label = staff.ten_nv || idNv;
+          const selected = idNv && idNv === currentId ? " selected" : "";
+
+          return `<option value="${escapeHtml(idNv)}"${selected}>${escapeHtml(label)}</option>`;
+        })
+      ].join("");
 
       return `
-        <span class="staff-chip" title="${escapeHtml(row.ten_nv || row.id_nv)}">
-          <span class="staff-chip-name">${escapeHtml(row.ten_nv || row.id_nv)}</span>
-          <button
-            type="button"
-            class="staff-chip-remove"
-            title="Bỏ nhân viên"
-            onclick="removeCustomerStaff('${escapeJs(maKh)}', '${escapeJs(row.id_nv)}', event)"
-          >×</button>
-        </span>
+        <select
+          class="staff-cell-select"
+          data-ma-kh="${escapeHtml(maKh || "")}"          
+          onchange="saveCustomerStaffAssignment('${escapeJs(maKh)}', this.value)"
+        >
+          ${options}
+        </select>
       `;
     }
 
-
     function updateCustomerStaffEditorUI(maKh) {
       const maKhText = String(maKh || "").trim();
-      document.querySelectorAll(`.staff-chip-editor[data-ma-kh="${cssEscapeValue(maKhText)}"]`).forEach(function (editor) {
-        editor.innerHTML = renderStaffChipContent(maKhText);
+      const currentId = getCustomerStaffIds(maKhText)[0] || "";
+
+      document.querySelectorAll(`.staff-cell-select[data-ma-kh="${cssEscapeValue(maKhText)}"]`).forEach(function (select) {
+        select.value = currentId;
       });
     }
 
@@ -3068,18 +3075,10 @@
       return String(value || "").replaceAll("\\", "\\\\").replaceAll('"', '\"');
     }
 
+    // Giữ tên hàm cũ để không phải đổi nhiều chỗ render.
+    // Bản mới không dùng popup/chip nữa; dùng select native để nhẹ và nhanh hơn.
     function renderStaffChips(maKh) {
-      const content = renderStaffChipContent(maKh);
-
-      return `
-        <div
-          class="staff-chip-editor"
-          data-ma-kh="${escapeHtml(maKh || "")}"          
-          onclick="openCustomerStaffPicker('${escapeJs(maKh)}', this, event)"
-        >
-          ${content}
-        </div>
-      `;
+      return renderStaffSelect(maKh);
     }
 
     function closeCustomerStaffPicker() {
@@ -3088,93 +3087,15 @@
         oldPicker.remove();
       }
 
-      document.querySelectorAll(".staff-chip-editor.active").forEach(function (el) {
-        el.classList.remove("active");
-      });
-
       activeStaffPicker = null;
     }
+
     function openCustomerStaffPicker(maKh, anchorEl, event) {
+      // Không dùng nữa. Nhân viên phụ trách đã chuyển sang select native.
       if (event) {
+        event.preventDefault();
         event.stopPropagation();
       }
-
-      const currentId = getCustomerStaffIds(maKh)[0] || "";
-
-      closeCustomerStaffPicker();
-      anchorEl.classList.add("active");
-
-      const picker = document.createElement("div");
-      picker.id = "staffChipPicker";
-      picker.className = "staff-chip-picker";
-
-      picker.innerHTML = `
-        <div class="staff-chip-picker-title">Chọn 1 nhân viên phụ trách</div>
-        <button
-          type="button"
-          class="staff-chip-option"
-          data-id-nv=""
-        >
-          <span class="staff-chip-option-name">Bỏ gán nhân viên</span>
-          <span>×</span>
-        </button>
-        ${staffRows.length === 0
-          ? `<div class="staff-chip-empty-option">Chưa có danh sách nhân viên.</div>`
-          : staffRows.map(function (staff) {
-              const idNv = normalizeKiotStaffId(staff.id_nv);
-              const selectedMark = idNv && idNv === currentId ? "✓" : "＋";
-              return `
-                <button
-                  type="button"
-                  class="staff-chip-option"
-                  data-id-nv="${escapeHtml(idNv)}"
-                >
-                  <span class="staff-chip-option-name">${escapeHtml(staff.ten_nv || idNv)}</span>
-                  <span>${selectedMark}</span>
-                </button>
-              `;
-            }).join("")
-        }
-      `;
-
-      document.body.appendChild(picker);
-
-      const rect = anchorEl.getBoundingClientRect();
-      const left = Math.min(rect.left, window.innerWidth - 312);
-      const top = Math.min(rect.bottom + 6, window.innerHeight - 330);
-      picker.style.left = Math.max(8, left) + "px";
-      picker.style.top = Math.max(8, top) + "px";
-
-      picker.addEventListener("click", function (e) {
-        e.stopPropagation();
-      });
-
-      picker.querySelectorAll(".staff-chip-option").forEach(function (btn) {
-        btn.addEventListener("mousedown", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-        });
-
-        btn.addEventListener("click", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-
-          const idNv = normalizeKiotStaffId(btn.dataset.idNv || "");
-
-          closeCustomerStaffPicker();
-
-          saveCustomerStaffAssignment(maKh, idNv).catch(function (error) {
-            console.error("Lỗi lưu người phụ trách:", error);
-            showNotice("Lỗi lưu người phụ trách: " + (error.message || JSON.stringify(error)), "error", 4500);
-          });
-        });
-      });
-
-      activeStaffPicker = {
-        ma_kh: maKh,
-        anchorEl: anchorEl,
-        pickerEl: picker
-      };
     }
     async function removeCustomerStaff(maKh, idNv, event) {
       if (event) {
@@ -3210,6 +3131,7 @@
 
       updateCustomerStaffEditorUI(maKhText);
       writeStaffAssignmentCache(maKhText, idNv ? [idNv] : []);
+      renderCustomers();
 
       try {
         await sendCustomerWebhook(
@@ -3767,7 +3689,7 @@
       const picker = document.getElementById("staffChipPicker");
       const clickedInsideStaffChipPicker =
         (picker && picker.contains(target)) ||
-        (target.closest && target.closest(".staff-chip-editor"));
+        false;
 
       if (!clickedInsideStaffChipPicker) {
         closeCustomerStaffPicker();
