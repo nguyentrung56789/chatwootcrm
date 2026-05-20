@@ -2396,6 +2396,13 @@
         return;
       }
 
+      const rowConversationId = normalizeConversationId(customer.conversation_id || customer.chatwoot_conversation_id);
+
+      if (!rowConversationId) {
+        showNotice("Khách này chưa có conversation_id/hội thoại. Gán KH vào hội thoại trước rồi mới mở Zalo chat.", "error", 2800);
+        return;
+      }
+
       const staff = getCustomerStaffRows(customer.ma_kh || maKh)[0] || null;
 
       if (!staff || !normalizeKiotStaffId(staff.id_nv)) {
@@ -2427,7 +2434,9 @@
         ten_kh: customer.ten_kh || "",
         sdt: customer.sdt || "",
 
-        conversation_id: currentChatwootConversationId || rowConversationId || "",
+        // Zalo chat ưu tiên dùng conversation_id đã lưu trên dòng khách hàng.
+        // Không lấy nhầm hội thoại đang mở nếu dòng khách chưa được gán.
+        conversation_id: rowConversationId || currentChatwootConversationId || "",
         row_conversation_id: rowConversationId || "",
         chatwoot_contact_id: getCurrentContactId() || customer.chatwoot_contact_id || null,
 
@@ -3857,7 +3866,7 @@
       customerBody.innerHTML = filtered.map(function (item) {
         const rowStaff = getCustomerStaffRows(item.ma_kh || "")[0] || null;
         const staffTitle = rowStaff ? (rowStaff.ten_nv || rowStaff.id_nv || "") : "";
-        const hasMaNv = !!(rowStaff && normalizeKiotStaffId(rowStaff.id_nv));
+        const hasConversationId = !!normalizeConversationId(item.conversation_id || item.chatwoot_conversation_id);
 
         return `
           <tr>
@@ -3873,7 +3882,7 @@
                 <button class="assign-btn" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', this)">
                   Gán KH
                 </button>
-                ${hasMaNv ? `
+                ${hasConversationId ? `
                   <button
                     class="zalo-chat-btn"
                     title="Zalo chat"
