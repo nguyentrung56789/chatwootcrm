@@ -2991,6 +2991,22 @@
       changedCountText.textContent = `${count} thay đổi`;
     }
 
+    function getDbSortField() {
+      // Map tên cột trên giao diện sang tên cột thật trong Supabase.
+      // Quan trọng: Supabase phải order trước rồi mới range/phân trang.
+      if (sortField === "cong_no") return "congno";
+      if (sortField === "sdt") return "dien_thoai";
+      if (sortField === "ma_nv") return "ma_nv";
+      if (sortField === "ten_kh") return "ten_kh";
+      if (sortField === "ma_kh") return "ma_kh";
+
+      return "ma_kh";
+    }
+
+    function getDbSortAscending() {
+      return sortDirection !== "desc";
+    }
+
     function setCustomerLoading(isLoading) {
       isLoadingCustomers = isLoading;
 
@@ -3076,10 +3092,13 @@
 
       setCustomerLoading(true);
 
+      const dbSortField = getDbSortField();
+      const ascending = getDbSortAscending();
+
       let query = supabaseClient
         .from(TABLE_KHACH_HANG)
         .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, conversation_id, chatwoot_contact_id", { count: "exact" })
-        .order("ma_kh", { ascending: true })
+        .order(dbSortField, { ascending: ascending, nullsFirst: false })
         .range(from, to);
 
       if (keyword) {
@@ -3141,10 +3160,13 @@
 
       setCustomerLoading(true);
 
+      const dbSortField = getDbSortField();
+      const ascending = getDbSortAscending();
+
       let query = supabaseClient
         .from(TABLE_KHACH_HANG)
         .select("ma_kh, ten_kh, dien_thoai, congno, conversation_id, chatwoot_contact_id", { count: "exact" })
-        .order("ma_kh", { ascending: true })
+        .order(dbSortField, { ascending: ascending, nullsFirst: false })
         .range(from, to);
 
       if (keyword) {
@@ -3543,7 +3565,10 @@
         }
 
         updateSortIcons();
-        renderCustomers();
+
+        // Tải lại từ Supabase để order trên toàn bộ bảng trước khi phân trang.
+        // Như vậy bấm Công nợ xuống sẽ ra khách nợ cao nhất toàn bộ database, không chỉ 100 dòng đang xem.
+        loadCustomersFromSupabase(1);
       });
     });
 
@@ -3633,30 +3658,8 @@
         return matchStaff;
       });
 
-      if (sortField) {
-        filtered.sort(function (a, b) {
-          let valueA = a[sortField];
-          let valueB = b[sortField];
-
-          if (sortField === "cong_no") {
-            valueA = Number(valueA || 0);
-            valueB = Number(valueB || 0);
-          } else {
-            valueA = String(valueA || "").toLowerCase();
-            valueB = String(valueB || "").toLowerCase();
-          }
-
-          if (valueA < valueB) {
-            return sortDirection === "asc" ? -1 : 1;
-          }
-
-          if (valueA > valueB) {
-            return sortDirection === "asc" ? 1 : -1;
-          }
-
-          return 0;
-        });
-      }
+      // Không sort cục bộ ở đây.
+      // Dữ liệu đã được Supabase order theo toàn bộ bảng trước khi .range() phân trang.
 
       if (filtered.length === 0) {
         customerBody.innerHTML = `
