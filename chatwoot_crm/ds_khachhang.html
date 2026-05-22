@@ -2121,28 +2121,30 @@
         }
 
         const currentAssignedMaKh = getCurrentAssignedMaKh();
-        let action = "gan_makh";
+let action = "gan_makh";
 
-        if (currentAssignedMaKh && String(currentAssignedMaKh).trim() !== cleanMaKh) {
-          const ok = await showAssignConfirm(
-            "Contact Chatwoot hiện đang có ma_kh <b>" +
-              escapeHtml(currentAssignedMaKh) +
-              "</b>.<br>Bạn có muốn đổi sang <b>" +
-              escapeHtml(cleanMaKh) +
-              "</b> không?",
-            "Xác nhận đổi ma_kh trên contact"
-          );
+if (conflictRows.length > 0) {
+  const firstConflict = conflictRows[0];
+  const ok = await showAssignConfirm(
+    "Hội thoại này đang được gán với mã KH <b>" +
+      escapeHtml(firstConflict.ma_kh || "") +
+      "</b>.<br>Bạn có muốn đổi sang <b>" +
+      escapeHtml(cleanMaKh) +
+      "</b> không?",
+    "Xác nhận đổi mã khách hàng"
+  );
 
-          if (!ok) {
-            if (buttonEl) {
-              buttonEl.disabled = false;
-              buttonEl.textContent = "Gán KH";
-            }
-            return;
-          }
+  if (!ok) {
+    if (buttonEl) {
+      buttonEl.disabled = false;
+      buttonEl.textContent = "Gán KH";
+    }
+    return;
+  }
 
-          action = "sua_gan_makh";
-        }
+  // Bấm OK ở popup trùng conversation_id = đồng ý sửa gán mã KH
+  action = "sua_gan_makh";
+}
 
         const response = await sendCustomerWebhook(
           action,
