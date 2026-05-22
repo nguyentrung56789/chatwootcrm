@@ -2841,7 +2841,7 @@ if (conflictRows.length > 0) {
       const currentId = getCustomerStaffIds(maKh)[0] || "";
 
       const options = [
-        `<option value="">Chưa gán</option>`,
+        `<option value=""> </option>`,
         ...staffRows.map(function (staff) {
           const idNv = normalizeKiotStaffId(staff.id_nv);
           const label = staff.ten_nv || idNv;
