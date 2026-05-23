@@ -1213,6 +1213,192 @@
         justify-content: flex-end;
       }
     }
+
+
+    /* ===================== HÀNG HÓA XỔ RA THEO KHÁCH ===================== */
+    .customer-main-row {
+      cursor: pointer;
+    }
+
+    .customer-main-row.expanded td {
+      background: #eef6ff !important;
+      border-top: 2px solid #2563eb;
+    }
+
+    .customer-product-row.hidden {
+      display: none !important;
+    }
+
+    .customer-product-row td {
+      padding: 0 !important;
+      background: #ffffff !important;
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: initial !important;
+    }
+
+    .customer-product-box {
+      border: 2px solid #2563eb;
+      border-top: none;
+      background: #ffffff;
+      padding: 12px 14px;
+    }
+
+    .customer-product-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .customer-product-title {
+      font-size: 15px;
+      font-weight: 900;
+      color: #111827;
+      line-height: 1.35;
+    }
+
+    .customer-product-subtitle {
+      margin-top: 3px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .customer-product-status {
+      margin-top: 3px;
+      font-size: 12px;
+      color: #2563eb;
+      font-weight: 700;
+    }
+
+    .customer-product-tools {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .customer-product-search {
+      width: 230px;
+      height: 32px;
+      padding: 0 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      color: #111827;
+      background: #ffffff;
+    }
+
+    .customer-product-search:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+
+    .customer-product-close {
+      height: 32px;
+      border: none;
+      border-radius: 8px;
+      padding: 0 11px;
+      background: #e5e7eb;
+      color: #111827;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .customer-product-close:hover {
+      background: #d1d5db;
+    }
+
+    .customer-product-table-wrap {
+      max-height: 330px;
+      overflow: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 9px;
+      background: #ffffff;
+    }
+
+    .customer-product-table {
+      width: 100%;
+      min-width: 560px;
+      border-collapse: collapse;
+      font-size: 13px;
+      table-layout: fixed;
+    }
+
+    .customer-product-table th,
+    .customer-product-table td {
+      padding: 8px 9px !important;
+      border-bottom: 1px solid #e5e7eb;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    .customer-product-table th {
+      background: #f9fafb;
+      font-weight: 900;
+      color: #111827;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .customer-product-table th.product-sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .customer-product-table th.product-sortable:hover {
+      background: #eef2ff;
+    }
+
+    .customer-product-table .right {
+      text-align: right;
+    }
+
+    .customer-product-empty {
+      padding: 14px !important;
+      color: #6b7280;
+      font-size: 13px;
+      text-align: center !important;
+    }
+
+    .customer-product-footer {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .product-sort-icon {
+      margin-left: 4px;
+      color: #2563eb;
+      font-size: 11px;
+    }
+
+    @media (max-width: 760px) {
+      .customer-product-head {
+        display: block;
+      }
+
+      .customer-product-tools {
+        margin-top: 10px;
+      }
+
+      .customer-product-search {
+        width: 100%;
+      }
+
+      .customer-product-table {
+        min-width: 520px;
+      }
+    }
+
   </style>
 </head>
 
@@ -1427,6 +1613,8 @@
 
     const TABLE_NHAN_VIEN = getConfiguredTableName("index", "kv_nhan_vien");
     const TABLE_KHACH_HANG = getConfiguredTableName("kh", "kv_khachhang");
+    const VIEW_HANG_HOA_THEO_KHACH = "sql_hanghoa_theokhach";
+    const PRODUCT_DETAIL_MAX_ROWS = 500;
     const UPDATE_CHATWOOT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
     const ZALO_CHAT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/my-zalo-chatwoot";
 
@@ -1452,6 +1640,8 @@
     let SUPABASE_REST_URL = "";
     let SUPABASE_REST_ANON = "";
     let customers = [];
+    let customerProductCache = {};
+    let openedProductMaKh = "";
 
     let currentPage = 1;
     let pageSize = 100;
@@ -3140,6 +3330,9 @@ if (conflictRows.length > 0) {
     }
 
     async function refreshCustomersSmooth() {
+      customerProductCache = {};
+      openedProductMaKh = "";
+
       if (isLoadingCustomers) {
         return;
       }
@@ -3797,9 +3990,16 @@ if (conflictRows.length > 0) {
         const rowStaff = getCustomerStaffRows(item.ma_kh || "")[0] || null;
         const staffTitle = rowStaff ? (rowStaff.ten_nv || rowStaff.id_nv || "") : "";
         const hasConversationId = !!normalizeConversationId(item.conversation_id || item.chatwoot_conversation_id);
+        const maKh = String(item.ma_kh || "");
+        const safeMaKh = escapeJs(maKh);
+        const productRowId = getCustomerProductRowId(maKh);
 
         return `
-          <tr>
+          <tr
+            class="customer-main-row"
+            data-ma-kh="${escapeHtml(maKh)}"
+            onclick="toggleCustomerProducts('${safeMaKh}', event)"
+          >
             <td data-col="ma_kh" title="${escapeHtml(item.ma_kh || "")}">${escapeHtml(item.ma_kh || "")}</td>
             <td data-col="ten_kh" title="${escapeHtml(item.ten_kh || "")}">${escapeHtml(item.ten_kh || "")}</td>
             <td data-col="sdt" title="${escapeHtml(item.sdt || "")}">${escapeHtml(item.sdt || "")}</td>
@@ -3807,22 +4007,25 @@ if (conflictRows.length > 0) {
             <td data-col="ma_nv" title="${escapeHtml(staffTitle)}">
               ${renderStaffChips(item.ma_kh || "")}
             </td>
-            <td data-col="ngay_chat_cuoi" title="${escapeHtml(formatDateTime(item.ngay_chat_cuoi))}">
-              ${escapeHtml(formatDateTime(item.ngay_chat_cuoi))}
+            <td data-col="ngay_chat_cuoi" title="${escapeHtml(formatDateOnlySafe(item.ngay_chat_cuoi))}">
+              ${escapeHtml(formatDateOnlySafe(item.ngay_chat_cuoi))}
             </td>
             <td data-col="conversation_id" title="${escapeHtml(item.conversation_id || '')}">
               ${escapeHtml(item.conversation_id || '')}
             </td>
             <td data-col="action">
               <div class="row-actions">
-                <button class="assign-btn" onclick="assignCustomerToChatwoot('${escapeJs(item.ma_kh || "")}', this)">
+                <button
+                  class="assign-btn"
+                  onclick="event.stopPropagation(); assignCustomerToChatwoot('${safeMaKh}', this)"
+                >
                   Gán KH
                 </button>
                 ${hasConversationId ? `
                   <button
                     class="zalo-chat-btn"
                     title="Zalo chat"
-                    onclick="openZaloChat('${escapeJs(item.ma_kh || "")}', this)"
+                    onclick="event.stopPropagation(); openZaloChat('${safeMaKh}', this)"
                   >
                     Zalo chat
                   </button>
@@ -3830,10 +4033,418 @@ if (conflictRows.length > 0) {
               </div>
             </td>
           </tr>
+
+          <tr
+            id="${escapeHtml(productRowId)}"
+            class="customer-product-row hidden"
+            data-product-for="${escapeHtml(maKh)}"
+          >
+            <td colspan="8">
+              <div class="customer-product-box">
+                <div class="customer-product-head">
+                  <div>
+                    <div class="customer-product-title">
+                      Hàng hóa theo khách: ${escapeHtml(item.ten_kh || item.ma_kh || "")}
+                    </div>
+
+                    <div class="customer-product-subtitle">
+                      Mã KH: <b>${escapeHtml(maKh)}</b>
+                    </div>
+
+                    <div id="${escapeHtml(productRowId)}_status" class="customer-product-status">
+                      Chưa tải dữ liệu.
+                    </div>
+                  </div>
+
+                  <div class="customer-product-tools">
+                    <input
+                      id="${escapeHtml(productRowId)}_search"
+                      class="customer-product-search"
+                      type="search"
+                      placeholder="Lọc mã hàng, tên hàng..."
+                      oninput="filterCustomerProducts('${safeMaKh}')"
+                      onclick="event.stopPropagation()"
+                    />
+
+                    <button
+                      type="button"
+                      class="customer-product-close"
+                      onclick="event.stopPropagation(); closeCustomerProducts('${safeMaKh}')"
+                    >
+                      Đóng
+                    </button>
+                  </div>
+                </div>
+
+                <div class="customer-product-table-wrap">
+                  <table class="customer-product-table">
+                    <thead>
+                      <tr>
+                        <th
+                          class="product-sortable"
+                          onclick="event.stopPropagation(); sortCustomerProducts('${safeMaKh}', 'ma_hang')"
+                        >
+                          Mã hàng <span id="${escapeHtml(productRowId)}_sort_ma_hang" class="product-sort-icon"></span>
+                        </th>
+
+                        <th
+                          class="product-sortable"
+                          onclick="event.stopPropagation(); sortCustomerProducts('${safeMaKh}', 'ten_hang')"
+                        >
+                          Tên hàng <span id="${escapeHtml(productRowId)}_sort_ten_hang" class="product-sort-icon"></span>
+                        </th>
+
+                        <th
+                          class="product-sortable right"
+                          onclick="event.stopPropagation(); sortCustomerProducts('${safeMaKh}', 'so_luong')"
+                        >
+                          Tổng số lượng <span id="${escapeHtml(productRowId)}_sort_so_luong" class="product-sort-icon">▼</span>
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody id="${escapeHtml(productRowId)}_body">
+                      <tr>
+                        <td colspan="3" class="customer-product-empty">Bấm dòng để tải hàng hóa.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div id="${escapeHtml(productRowId)}_footer" class="customer-product-footer"></div>
+              </div>
+            </td>
+          </tr>
         `;
       }).join("");
 
       applyColumnVisibility();
+
+      if (openedProductMaKh) {
+        const row = document.getElementById(getCustomerProductRowId(openedProductMaKh));
+        const mainRow = document.querySelector('.customer-main-row[data-ma-kh="' + cssEscapeValue(openedProductMaKh) + '"]');
+
+        if (row) {
+          row.classList.remove("hidden");
+          if (mainRow) mainRow.classList.add("expanded");
+          renderCustomerProductRows(openedProductMaKh);
+        }
+      }
+    }
+
+    function getCustomerProductRowId(maKh) {
+      return "product_row_" + String(maKh || "").replace(/[^a-zA-Z0-9_-]/g, "_");
+    }
+
+    async function toggleCustomerProducts(maKh, event) {
+      if (
+        event &&
+        event.target &&
+        event.target.closest("button, select, input, textarea, label, .staff-cell-select, .zalo-chat-popover, .confirm-assign-modal")
+      ) {
+        return;
+      }
+
+      const cleanMaKh = String(maKh || "").trim();
+      const detailId = getCustomerProductRowId(cleanMaKh);
+      const detailRow = document.getElementById(detailId);
+      const mainRow = document.querySelector('.customer-main-row[data-ma-kh="' + cssEscapeValue(cleanMaKh) + '"]');
+
+      if (!detailRow) {
+        return;
+      }
+
+      const isOpening = detailRow.classList.contains("hidden");
+
+      document.querySelectorAll(".customer-product-row").forEach(function (row) {
+        row.classList.add("hidden");
+      });
+
+      document.querySelectorAll(".customer-main-row").forEach(function (row) {
+        row.classList.remove("expanded");
+      });
+
+      if (!isOpening) {
+        openedProductMaKh = "";
+        return;
+      }
+
+      openedProductMaKh = cleanMaKh;
+      detailRow.classList.remove("hidden");
+
+      if (mainRow) {
+        mainRow.classList.add("expanded");
+      }
+
+      await loadCustomerProducts(cleanMaKh);
+    }
+
+    function closeCustomerProducts(maKh) {
+      const cleanMaKh = String(maKh || "").trim();
+      const detailId = getCustomerProductRowId(cleanMaKh);
+      const detailRow = document.getElementById(detailId);
+      const mainRow = document.querySelector('.customer-main-row[data-ma-kh="' + cssEscapeValue(cleanMaKh) + '"]');
+
+      if (detailRow) {
+        detailRow.classList.add("hidden");
+      }
+
+      if (mainRow) {
+        mainRow.classList.remove("expanded");
+      }
+
+      if (openedProductMaKh === cleanMaKh) {
+        openedProductMaKh = "";
+      }
+    }
+
+    async function loadCustomerProducts(maKh, forceReload = false) {
+      const cleanMaKh = String(maKh || "").trim();
+      const detailId = getCustomerProductRowId(cleanMaKh);
+      const bodyEl = document.getElementById(detailId + "_body");
+      const statusEl = document.getElementById(detailId + "_status");
+
+      if (!cleanMaKh || !bodyEl) {
+        return;
+      }
+
+      if (!forceReload && customerProductCache[cleanMaKh]) {
+        renderCustomerProductRows(cleanMaKh);
+        return;
+      }
+
+      if (!supabaseClient) {
+        bodyEl.innerHTML = `
+          <tr>
+            <td colspan="3" class="customer-product-empty">Supabase chưa sẵn sàng.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      customerProductCache[cleanMaKh] = {
+        rows: [],
+        sortField: "so_luong",
+        sortDirection: "desc"
+      };
+
+      bodyEl.innerHTML = `
+        <tr>
+          <td colspan="3" class="customer-product-empty">Đang tải hàng hóa...</td>
+        </tr>
+      `;
+
+      if (statusEl) {
+        statusEl.textContent = "Đang lọc theo mã KH: " + cleanMaKh;
+      }
+
+      try {
+        const { data, error } = await supabaseClient
+          .from(VIEW_HANG_HOA_THEO_KHACH)
+          .select("ma_hang, ten_hang, so_luong")
+          .eq("makh", cleanMaKh)
+          .order("so_luong", { ascending: false })
+          .limit(PRODUCT_DETAIL_MAX_ROWS);
+
+        if (error) {
+          throw error;
+        }
+
+        customerProductCache[cleanMaKh] = {
+          rows: data || [],
+          sortField: "so_luong",
+          sortDirection: "desc"
+        };
+
+        renderCustomerProductRows(cleanMaKh);
+      } catch (error) {
+        console.error("Lỗi tải hàng hóa theo khách:", error);
+
+        bodyEl.innerHTML = `
+          <tr>
+            <td colspan="3" class="customer-product-empty">
+              Lỗi tải hàng hóa: ${escapeHtml(error.message || JSON.stringify(error))}
+            </td>
+          </tr>
+        `;
+
+        if (statusEl) {
+          statusEl.textContent = "Lỗi tải dữ liệu.";
+        }
+      }
+    }
+
+    function filterCustomerProducts(maKh) {
+      renderCustomerProductRows(maKh);
+    }
+
+    function sortCustomerProducts(maKh, field) {
+      const cleanMaKh = String(maKh || "").trim();
+      const cache = customerProductCache[cleanMaKh];
+
+      if (!cache) {
+        return;
+      }
+
+      if (cache.sortField === field) {
+        cache.sortDirection = cache.sortDirection === "asc" ? "desc" : "asc";
+      } else {
+        cache.sortField = field;
+        cache.sortDirection = field === "so_luong" ? "desc" : "asc";
+      }
+
+      renderCustomerProductRows(cleanMaKh);
+    }
+
+    function renderCustomerProductRows(maKh) {
+      const cleanMaKh = String(maKh || "").trim();
+      const detailId = getCustomerProductRowId(cleanMaKh);
+      const bodyEl = document.getElementById(detailId + "_body");
+      const searchEl = document.getElementById(detailId + "_search");
+      const statusEl = document.getElementById(detailId + "_status");
+      const footerEl = document.getElementById(detailId + "_footer");
+      const cache = customerProductCache[cleanMaKh];
+
+      if (!bodyEl || !cache) {
+        return;
+      }
+
+      const keyword = normalizeProductText(searchEl ? searchEl.value : "");
+
+      let rows = (cache.rows || []).filter(function (item) {
+        if (!keyword) return true;
+
+        const text = normalizeProductText(
+          String(item.ma_hang || "") + " " + String(item.ten_hang || "")
+        );
+
+        return text.includes(keyword);
+      });
+
+      rows.sort(function (a, b) {
+        let va = a[cache.sortField];
+        let vb = b[cache.sortField];
+
+        if (cache.sortField === "so_luong") {
+          va = Number(va || 0);
+          vb = Number(vb || 0);
+        } else {
+          va = normalizeProductText(va);
+          vb = normalizeProductText(vb);
+        }
+
+        if (va < vb) return cache.sortDirection === "asc" ? -1 : 1;
+        if (va > vb) return cache.sortDirection === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      updateCustomerProductSortIcons(cleanMaKh);
+
+      if (!cache.rows.length) {
+        bodyEl.innerHTML = `
+          <tr>
+            <td colspan="3" class="customer-product-empty">
+              Khách này chưa có hàng hóa trong view ${escapeHtml(VIEW_HANG_HOA_THEO_KHACH)}.
+            </td>
+          </tr>
+        `;
+
+        if (statusEl) statusEl.textContent = "0 mặt hàng.";
+        if (footerEl) footerEl.textContent = "";
+        return;
+      }
+
+      if (!rows.length) {
+        bodyEl.innerHTML = `
+          <tr>
+            <td colspan="3" class="customer-product-empty">
+              Không có mặt hàng nào khớp từ khóa lọc.
+            </td>
+          </tr>
+        `;
+
+        if (statusEl) {
+          statusEl.textContent = "0 / " + cache.rows.length + " mặt hàng.";
+        }
+
+        if (footerEl) {
+          footerEl.textContent = "Tổng: " + cache.rows.length + " mặt hàng.";
+        }
+
+        return;
+      }
+
+      bodyEl.innerHTML = rows.map(function (item) {
+        return `
+          <tr>
+            <td title="${escapeHtml(item.ma_hang || "")}">${escapeHtml(item.ma_hang || "")}</td>
+            <td title="${escapeHtml(item.ten_hang || "")}">${escapeHtml(item.ten_hang || "")}</td>
+            <td class="right" title="${escapeHtml(formatNumberSafe(item.so_luong))}">
+              ${escapeHtml(formatNumberSafe(item.so_luong))}
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      const suffix = keyword
+        ? rows.length + " / " + cache.rows.length + " mặt hàng"
+        : rows.length + " mặt hàng";
+
+      if (statusEl) {
+        statusEl.textContent = suffix + ".";
+      }
+
+      if (footerEl) {
+        footerEl.textContent = "Đang lọc theo mã KH: " + cleanMaKh;
+      }
+    }
+
+    function updateCustomerProductSortIcons(maKh) {
+      const cleanMaKh = String(maKh || "").trim();
+      const detailId = getCustomerProductRowId(cleanMaKh);
+      const cache = customerProductCache[cleanMaKh];
+
+      if (!cache) {
+        return;
+      }
+
+      ["ma_hang", "ten_hang", "so_luong"].forEach(function (field) {
+        const icon = document.getElementById(detailId + "_sort_" + field);
+
+        if (!icon) {
+          return;
+        }
+
+        icon.textContent = cache.sortField === field
+          ? (cache.sortDirection === "asc" ? "▲" : "▼")
+          : "";
+      });
+    }
+
+    function normalizeProductText(value) {
+      return String(value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+    }
+
+    function formatDateOnlySafe(value) {
+      if (!value) return "";
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return "";
+
+      return date.toLocaleDateString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+      });
+    }
+
+    function formatNumberSafe(value) {
+      const number = Number(value || 0);
+      return Number.isFinite(number) ? number.toLocaleString("vi-VN") : "0";
     }
 
 
