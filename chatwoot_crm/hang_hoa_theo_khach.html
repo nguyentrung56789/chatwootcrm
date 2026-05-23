@@ -131,7 +131,7 @@
     }
 
     table {
-      width: max-content;
+      width: 100%;
       min-width: 900px;
       border-collapse: collapse;
       font-size: 13px;
@@ -211,14 +211,14 @@
       <div class="header">
         <div>
           <div class="title">Chi tiết đơn hàng</div>
-          <div id="statusText" class="status">Đang lấy mã khách từ Chatwoot...</div>
+          <div id="statusText" class="status">Đang lấy mã khách...</div>
         </div>
 
         <button id="reloadBtn" type="button" class="reload-btn">↻ Làm mới</button>
       </div>
 
       <div id="messageBox" class="message">
-        Đang kiểm tra custom_attributes.makh...
+        Đang kiểm tra makh...
       </div>
 
       <div id="tableWrap" class="table-wrap hidden">
@@ -244,8 +244,8 @@
   </div>
 
   <script>
-    const TABLE_DON_HANG = "don_hang";
-    const TABLE_CHI_TIET = "don_hang_chitiet";
+    const VIEW_CHI_TIET_THEO_KH = "v_chatwoot_ct_don_hang";
+    const MAX_ROWS = 300;
 
     const CHATWOOT_FETCH_INFO_EVENT = "chatwoot-dashboard-app:fetch-info";
 
@@ -264,7 +264,7 @@
     window.addEventListener("message", handleChatwootMessage);
 
     reloadBtn.addEventListener("click", function () {
-      loadByChatwootMakh();
+      loadByMakh();
     });
 
     init();
@@ -276,10 +276,8 @@
         requestChatwootContext();
         setTimeout(requestChatwootContext, 300);
         setTimeout(requestChatwootContext, 900);
-        setTimeout(requestChatwootContext, 1600);
-        setTimeout(requestChatwootContext, 2600);
 
-        await loadByChatwootMakh();
+        await loadByMakh();
       } catch (error) {
         statusText.textContent = "Lỗi khởi tạo";
         hideTable("Lỗi khởi tạo: " + getErrorMessage(error), true);
@@ -330,13 +328,22 @@
       supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnon);
     }
 
-    async function loadByChatwootMakh() {
+    async function loadByMakh() {
       setLoading(true);
 
       try {
-        await waitForChatwootContext(3000);
+        /*
+          Ưu tiên lấy makh từ URL:
+          ct_don_hang.html?makh={{contact.custom_attributes.makh}}
 
-        const makh = getMakhFromChatwootContext();
+          Cách này nhanh hơn vì không phải chờ Chatwoot appContext.
+        */
+        let makh = getQueryParam("makh") || getQueryParam("ma_kh");
+
+        if (!makh) {
+          await waitForChatwootContext(800);
+          makh = getMakhFromChatwootContext();
+        }
 
         if (!makh) {
           statusText.textContent = "Không có makh";
@@ -356,112 +363,23 @@
     }
 
     async function loadDetailsByMakh(makh) {
-      /*
-        don_hang_chitiet không có makh.
-        Vì vậy phải:
-        1) Lọc don_hang theo ma_kh = makh để lấy ma_hd.
-        2) Lấy don_hang_chitiet theo danh sách ma_hd đó.
-      */
+      const { data, error } = await supabaseClient
+        .from(VIEW_CHI_TIET_THEO_KH)
+        .select("ma_hd, ngay, ma_hang, ten_hang, so_luong, don_gia, thanh_tien")
+        .eq("makh", makh)
+        .order("ngay", { ascending: false })
+        .limit(MAX_ROWS);
 
-      const orders = await fetchAllRows(function (from, to) {
-        return supabaseClient
-          .from(TABLE_DON_HANG)
-          .select("ma_hd, ngay")
-          .eq("ma_kh", makh)
-          .not("ma_hd", "is", null)
-          .order("ngay", { ascending: false })
-          .range(from, to);
-      });
-
-      const orderRows = orders || [];
-
-      const maHdList = [...new Set(
-        orderRows
-          .map(function (item) {
-            return String(item.ma_hd || "").trim();
-          })
-          .filter(Boolean)
-      )];
-
-      if (maHdList.length === 0) {
-        hideTable("Không tìm thấy hóa đơn nào của mã khách: " + makh, false);
-        return;
+      if (error) {
+        throw error;
       }
 
-      const ngayMap = {};
-
-      orderRows.forEach(function (item) {
-        const maHd = String(item.ma_hd || "").trim();
-
-        if (maHd && !ngayMap[maHd]) {
-          ngayMap[maHd] = item.ngay || null;
-        }
-      });
-
-      const allDetails = [];
-      const chunks = chunkArray(maHdList, 150);
-
-      for (const chunk of chunks) {
-        const details = await fetchAllRows(function (from, to) {
-          return supabaseClient
-            .from(TABLE_CHI_TIET)
-            .select("ma_hd, ma_h, ten_h, so_luong, don_gia, thanh_tien")
-            .in("ma_hd", chunk)
-            .order("ma_hd", { ascending: false })
-            .range(from, to);
-        });
-
-        allDetails.push(...details);
-      }
-
-      allDetails.forEach(function (item) {
-        const maHd = String(item.ma_hd || "").trim();
-        item.ngay = ngayMap[maHd] || null;
-      });
-
-      allDetails.sort(function (a, b) {
-        const ta = a.ngay ? new Date(a.ngay).getTime() : 0;
-        const tb = b.ngay ? new Date(b.ngay).getTime() : 0;
-
-        if (tb !== ta) {
-          return tb - ta;
-        }
-
-        return String(b.ma_hd || "").localeCompare(String(a.ma_hd || ""));
-      });
-
-      renderDetails(allDetails, makh, maHdList.length);
+      renderDetails(data || [], makh);
     }
 
-    async function fetchAllRows(queryBuilderFn) {
-      const pageSize = 1000;
-      let from = 0;
-      let allRows = [];
-
-      while (true) {
-        const to = from + pageSize - 1;
-        const { data, error } = await queryBuilderFn(from, to);
-
-        if (error) {
-          throw error;
-        }
-
-        const rows = data || [];
-        allRows = allRows.concat(rows);
-
-        if (rows.length < pageSize) {
-          break;
-        }
-
-        from += pageSize;
-      }
-
-      return allRows;
-    }
-
-    function renderDetails(rows, makh, orderCount) {
+    function renderDetails(rows, makh) {
       if (!rows.length) {
-        hideTable("Có hóa đơn của mã khách " + makh + " nhưng chưa có dòng chi tiết.", false);
+        hideTable("Không tìm thấy chi tiết đơn hàng của mã khách: " + makh, false);
         return;
       }
 
@@ -470,8 +388,8 @@
           <tr>
             <td>${escapeHtml(item.ma_hd)}</td>
             <td>${escapeHtml(formatDateTime(item.ngay))}</td>
-            <td>${escapeHtml(item.ma_h)}</td>
-            <td>${escapeHtml(item.ten_h)}</td>
+            <td>${escapeHtml(item.ma_hang)}</td>
+            <td>${escapeHtml(item.ten_hang)}</td>
             <td class="right">${escapeHtml(formatNumber(item.so_luong))}</td>
             <td class="right">${escapeHtml(formatMoney(item.don_gia))}</td>
             <td class="right">${escapeHtml(formatMoney(item.thanh_tien))}</td>
@@ -480,12 +398,11 @@
       }).join("");
 
       messageBox.className = "message ok";
-      messageBox.textContent = "Đã lọc theo custom_attributes.makh = " + makh;
+      messageBox.textContent = "Đã lọc theo makh = " + makh;
 
       tableWrap.classList.remove("hidden");
       footerInfo.classList.remove("hidden");
-      footerInfo.textContent =
-        "Tìm thấy " + rows.length + " dòng chi tiết từ " + orderCount + " hóa đơn.";
+      footerInfo.textContent = "Tìm thấy " + rows.length + " dòng chi tiết.";
     }
 
     function hideTable(message, isError) {
@@ -501,6 +418,16 @@
     function setLoading(isLoading) {
       reloadBtn.disabled = isLoading;
       reloadBtn.textContent = isLoading ? "Đang tải..." : "↻ Làm mới";
+    }
+
+    function getQueryParam(name) {
+      const value = new URLSearchParams(window.location.search).get(name);
+
+      if (!value || String(value).includes("{{")) {
+        return "";
+      }
+
+      return String(value).trim();
     }
 
     function getMakhFromChatwootContext() {
@@ -612,7 +539,7 @@
       return new Promise(function (resolve) {
         const timer = setTimeout(function () {
           resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
-        }, timeoutMs || 2000);
+        }, timeoutMs || 800);
 
         chatwootContextReadyResolvers.push(function (context) {
           clearTimeout(timer);
@@ -675,16 +602,6 @@
       return match && match[1] ? String(match[1]) : null;
     }
 
-    function chunkArray(array, size) {
-      const result = [];
-
-      for (let i = 0; i < array.length; i += size) {
-        result.push(array.slice(i, i + size));
-      }
-
-      return result;
-    }
-
     function formatDateTime(value) {
       if (!value) {
         return "";
@@ -697,11 +614,11 @@
       }
 
       return d.toLocaleString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
         day: "2-digit",
         month: "2-digit",
-        year: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit"
+        year: "2-digit"
       });
     }
 
