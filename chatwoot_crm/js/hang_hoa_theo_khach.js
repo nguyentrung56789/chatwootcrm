@@ -1,35 +1,20 @@
 "use strict";
 
-const LOGIN_STORAGE_KEY = "chatwoot_crm_user";
 const VIEW_HANG_HOA_THEO_KHACH = "sql_hanghoa_theokhach";
-const TABLE_NHAN_VIEN = getConfiguredTableName("index", "kv_nhan_vien");
 const MAX_ROWS = 500;
 const CHATWOOT_FETCH_INFO_EVENT = "chatwoot-dashboard-app:fetch-info";
 
-let currentUser = getLoginUser();
 let supabaseClient = null;
-let SUPABASE_REST_URL = "";
-let SUPABASE_REST_ANON = "";
-
 let chatwootContext = null;
 let chatwootContextRaw = "";
 let chatwootContextReadyResolvers = [];
-
 let allRows = [];
 let filteredRows = [];
 let currentMakh = "";
 let sortField = "so_luong";
 let sortDirection = "desc";
 
-const loginPopup = document.getElementById("loginPopup");
-const popupMaNvInput = document.getElementById("popupMaNvInput");
-const popupMatKhauInput = document.getElementById("popupMatKhauInput");
-const popupLoginBtn = document.getElementById("popupLoginBtn");
-const popupLoginMessage = document.getElementById("popupLoginMessage");
-const popupCfgNote = document.getElementById("popupCfgNote");
-
 const reloadBtn = document.getElementById("reloadBtn");
-const logoutBtn = document.getElementById("logoutBtn");
 const searchInput = document.getElementById("searchInput");
 const statusText = document.getElementById("statusText");
 const messageBox = document.getElementById("messageBox");
@@ -41,21 +26,6 @@ window.addEventListener("message", handleChatwootMessage);
 
 reloadBtn.addEventListener("click", function () {
   loadByMakh();
-});
-
-logoutBtn.addEventListener("click", function () {
-  localStorage.removeItem(LOGIN_STORAGE_KEY);
-  currentUser = null;
-  clearData();
-  openLoginPopup();
-});
-
-popupLoginBtn.addEventListener("click", loginFromPopup);
-
-popupMatKhauInput.addEventListener("keydown", function (event) {
-  if (event.key === "Enter") {
-    loginFromPopup();
-  }
 });
 
 searchInput.addEventListener("input", function () {
@@ -91,40 +61,14 @@ async function init() {
   if (!supabaseClient) {
     statusText.textContent = "Lỗi cấu hình";
     showMessage("Chưa lấy được Supabase URL hoặc anon key.", true);
-    openLoginPopup();
     return;
   }
 
-  if (!currentUser) {
-    statusText.textContent = "Chưa đăng nhập";
-    showMessage("Vui lòng đăng nhập để xem hàng hóa đã mua.", false);
-    openLoginPopup();
-    return;
-  }
-
-  closeLoginPopup();
   await loadByMakh();
-}
-
-function getConfiguredTableName(configName, fallbackTable) {
-  try {
-    if (typeof window.getConfig === "function") {
-      const cfg = window.getConfig(configName);
-      if (cfg && typeof cfg === "object" && cfg.table) {
-        return cfg.table;
-      }
-    }
-  } catch (error) {
-    console.warn("Không lấy được cấu hình bảng:", configName, error);
-  }
-
-  return fallbackTable;
 }
 
 async function initSupabase() {
   try {
-    popupCfgNote.textContent = "Đang lấy cấu hình Supabase.";
-
     let supabaseUrl = "";
     let supabaseAnon = "";
 
@@ -151,105 +95,22 @@ async function initSupabase() {
         const urlValue = window.getConfig("url");
         const anonValue = window.getConfig("anon");
 
-        if (typeof urlValue === "string") {
-          supabaseUrl = supabaseUrl || urlValue;
-        }
-
-        if (typeof anonValue === "string") {
-          supabaseAnon = supabaseAnon || anonValue;
-        }
+        if (typeof urlValue === "string") supabaseUrl = supabaseUrl || urlValue;
+        if (typeof anonValue === "string") supabaseAnon = supabaseAnon || anonValue;
       }
     }
 
     if (!supabaseUrl || !supabaseAnon) {
-      popupCfgNote.textContent = "Thiếu cấu hình Supabase";
-      popupLoginMessage.textContent = "Chưa lấy được Supabase URL hoặc anon key.";
       return;
     }
 
-    SUPABASE_REST_URL = supabaseUrl;
-    SUPABASE_REST_ANON = supabaseAnon;
     supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnon);
-
-    popupCfgNote.textContent = "Sẵn sàng đăng nhập";
-    popupLoginMessage.textContent = "";
   } catch (error) {
     console.error("Lỗi initSupabase:", error);
-    popupCfgNote.textContent = "Lỗi cấu hình Supabase";
-    popupLoginMessage.textContent = error.message || "Không lấy được cấu hình.";
   }
-}
-
-async function loginFromPopup() {
-  const maNv = popupMaNvInput.value.trim();
-  const matKhau = popupMatKhauInput.value.trim();
-
-  popupLoginMessage.textContent = "";
-
-  if (!maNv || !matKhau) {
-    popupLoginMessage.textContent = "Vui lòng nhập mã nhân viên và mật khẩu.";
-    return;
-  }
-
-  if (!supabaseClient) {
-    popupLoginMessage.textContent = "Supabase chưa sẵn sàng.";
-    return;
-  }
-
-  popupLoginBtn.disabled = true;
-  popupLoginBtn.textContent = "Đang đăng nhập...";
-
-  const { data, error } = await supabaseClient
-    .from(TABLE_NHAN_VIEN)
-    .select("ma_nv, mat_khau, ten_nv, dien_thoai, hoat_dong, admin")
-    .or(`ma_nv.eq.${escapeSupabaseOrValue(maNv)},dien_thoai.eq.${escapeSupabaseOrValue(maNv)}`)
-    .eq("mat_khau", matKhau)
-    .maybeSingle();
-
-  popupLoginBtn.disabled = false;
-  popupLoginBtn.textContent = "Đăng nhập";
-
-  if (error) {
-    console.error("Lỗi đăng nhập:", error);
-    popupLoginMessage.textContent = "Lỗi kiểm tra đăng nhập.";
-    return;
-  }
-
-  if (!data) {
-    popupLoginMessage.textContent = "Sai mã nhân viên hoặc mật khẩu.";
-    return;
-  }
-
-  if (data.hoat_dong === false) {
-    popupLoginMessage.textContent = "Tài khoản đã bị khóa.";
-    return;
-  }
-
-  currentUser = {
-    ma_nv: data.ma_nv,
-    ten_nv: data.ten_nv,
-    admin: data.admin === true,
-    login_at: new Date().toISOString()
-  };
-
-  localStorage.setItem(LOGIN_STORAGE_KEY, JSON.stringify(currentUser));
-
-  popupMaNvInput.value = "";
-  popupMatKhauInput.value = "";
-  popupLoginMessage.textContent = "";
-
-  closeLoginPopup();
-  await loadByMakh();
 }
 
 async function loadByMakh() {
-  if (!currentUser) {
-    statusText.textContent = "Chưa đăng nhập";
-    showMessage("Vui lòng đăng nhập để xem hàng hóa đã mua.", false);
-    openLoginPopup();
-    return;
-  }
-
   setLoading(true);
 
   try {
@@ -272,7 +133,6 @@ async function loadByMakh() {
 
     currentMakh = makh;
     statusText.textContent = "KH: " + makh;
-
     await loadHangHoaTheoKhach(makh);
   } catch (error) {
     statusText.textContent = "Lỗi tải dữ liệu";
@@ -290,9 +150,7 @@ async function loadHangHoaTheoKhach(makh) {
     .order("so_luong", { ascending: false })
     .limit(MAX_ROWS);
 
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
 
   allRows = data || [];
   applySearchSortRender();
@@ -303,16 +161,11 @@ function applySearchSortRender() {
 
   filteredRows = allRows.filter(function (item) {
     if (!keyword) return true;
-
-    const text = normalizeText(
-      String(item.ma_hang || "") + " " + String(item.ten_hang || "")
-    );
-
+    const text = normalizeText(String(item.ma_hang || "") + " " + String(item.ten_hang || ""));
     return text.includes(keyword);
   });
 
   filteredRows.sort(compareRows);
-
   renderHangHoa(filteredRows, currentMakh);
 }
 
@@ -342,11 +195,7 @@ function renderHangHoa(rows, makh) {
   }
 
   if (!rows.length) {
-    detailBody.innerHTML = `
-      <tr>
-        <td colspan="3">Không có mặt hàng nào khớp từ khóa tìm kiếm.</td>
-      </tr>
-    `;
+    detailBody.innerHTML = `<tr><td colspan="3">Không có mặt hàng nào khớp từ khóa tìm kiếm.</td></tr>`;
     tableWrap.classList.remove("hidden");
     footerInfo.classList.remove("hidden");
     footerInfo.textContent = "0 / " + allRows.length + " mặt hàng.";
@@ -374,7 +223,6 @@ function renderHangHoa(rows, makh) {
 
   footerInfo.textContent = suffix + ".";
   statusText.textContent = "KH: " + makh + " · " + suffix;
-
   hideMessage();
 }
 
@@ -382,26 +230,9 @@ function updateSortIcons() {
   document.querySelectorAll("th.sortable").forEach(function (th) {
     const icon = th.querySelector(".sort-icon");
     const field = th.getAttribute("data-sort");
-
     if (!icon) return;
-
-    if (field === sortField) {
-      icon.textContent = sortDirection === "asc" ? "▲" : "▼";
-    } else {
-      icon.textContent = "";
-    }
+    icon.textContent = field === sortField ? (sortDirection === "asc" ? "▲" : "▼") : "";
   });
-}
-
-function clearData() {
-  allRows = [];
-  filteredRows = [];
-  detailBody.innerHTML = "";
-  tableWrap.classList.add("hidden");
-  footerInfo.classList.add("hidden");
-  footerInfo.textContent = "";
-  statusText.textContent = "Chưa đăng nhập";
-  showMessage("Vui lòng đăng nhập để xem hàng hóa đã mua.", false);
 }
 
 function hideTable(message, isError) {
@@ -411,7 +242,6 @@ function hideTable(message, isError) {
   tableWrap.classList.add("hidden");
   footerInfo.classList.add("hidden");
   footerInfo.textContent = "";
-
   showMessage(message, isError);
 }
 
@@ -431,33 +261,9 @@ function setLoading(isLoading) {
   reloadBtn.textContent = isLoading ? "Đang tải..." : "↻ Làm mới";
 }
 
-function openLoginPopup() {
-  loginPopup.classList.remove("hidden");
-  setTimeout(function () {
-    popupMaNvInput.focus();
-  }, 100);
-}
-
-function closeLoginPopup() {
-  loginPopup.classList.add("hidden");
-}
-
-function getLoginUser() {
-  try {
-    const raw = localStorage.getItem(LOGIN_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (error) {
-    return null;
-  }
-}
-
 function getQueryParam(name) {
   const value = new URLSearchParams(window.location.search).get(name);
-
-  if (!value || String(value).includes("{{")) {
-    return "";
-  }
-
+  if (!value || String(value).includes("{{")) return "";
   return String(value).trim();
 }
 
@@ -468,35 +274,22 @@ function getMakhFromChatwootContext() {
   const candidates = [
     ctx && ctx.contact && ctx.contact.custom_attributes,
     ctx && ctx.sender && ctx.sender.custom_attributes,
-
     c && c.sender && c.sender.custom_attributes,
     c && c.contact && c.contact.custom_attributes,
-
     c && c.meta && c.meta.sender && c.meta.sender.custom_attributes,
     c && c.meta && c.meta.contact && c.meta.contact.custom_attributes,
-
     ctx && ctx.conversation && ctx.conversation.sender && ctx.conversation.sender.custom_attributes,
     ctx && ctx.conversation && ctx.conversation.contact && ctx.conversation.contact.custom_attributes
   ];
 
   for (const attrs of candidates) {
-    if (!attrs || typeof attrs !== "object") {
-      continue;
-    }
+    if (!attrs || typeof attrs !== "object") continue;
 
     const makh =
-      attrs.makh ||
-      attrs.ma_kh ||
-      attrs.maKH ||
-      attrs.ma_khach_hang ||
-      attrs["mã khách hàng"] ||
-      attrs["ma khach hang"] ||
-      attrs.customer_code ||
-      "";
+      attrs.makh || attrs.ma_kh || attrs.maKH || attrs.ma_khach_hang ||
+      attrs["mã khách hàng"] || attrs["ma khach hang"] || attrs.customer_code || "";
 
-    if (String(makh).trim()) {
-      return String(makh).trim();
-    }
+    if (String(makh).trim()) return String(makh).trim();
   }
 
   if (chatwootContextRaw) {
@@ -506,9 +299,7 @@ function getMakhFromChatwootContext() {
       extractFirstMatch(chatwootContextRaw, /["']ma_khach_hang["']\s*:\s*["']([^"']+)["']/i) ||
       extractFirstMatch(chatwootContextRaw, /["']mã khách hàng["']\s*:\s*["']([^"']+)["']/i);
 
-    if (rawMakh) {
-      return String(rawMakh).trim();
-    }
+    if (rawMakh) return String(rawMakh).trim();
   }
 
   return "";
@@ -519,7 +310,6 @@ function handleChatwootMessage(event) {
   window.__CHATWOOT_APP_CONTEXT_RAW__ = chatwootContextRaw;
 
   const context = extractChatwootContextFromMessage(event.data);
-
   if (context) {
     chatwootContext = context;
     window.__CHATWOOT_APP_CONTEXT__ = context;
@@ -530,27 +320,11 @@ function handleChatwootMessage(event) {
 
 function extractChatwootContextFromMessage(rawData) {
   const payload = tryParseJson(rawData);
-
-  if (!payload || typeof payload !== "object") {
-    return null;
-  }
-
-  if (payload.event === "appContext") {
-    return payload.data || null;
-  }
-
-  if (payload.data && payload.data.event === "appContext") {
-    return payload.data.data || null;
-  }
-
-  if (payload.conversation && typeof payload.conversation === "object") {
-    return payload;
-  }
-
-  if (payload.data && payload.data.conversation && typeof payload.data.conversation === "object") {
-    return payload.data;
-  }
-
+  if (!payload || typeof payload !== "object") return null;
+  if (payload.event === "appContext") return payload.data || null;
+  if (payload.data && payload.data.event === "appContext") return payload.data.data || null;
+  if (payload.conversation && typeof payload.conversation === "object") return payload;
+  if (payload.data && payload.data.conversation && typeof payload.data.conversation === "object") return payload.data;
   return null;
 }
 
@@ -584,30 +358,19 @@ function waitForChatwootContext(timeoutMs) {
 function resolveWaitingChatwootContext() {
   const resolvers = chatwootContextReadyResolvers;
   chatwootContextReadyResolvers = [];
-
   resolvers.forEach(function (resolve) {
     resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
   });
 }
 
 function tryParseJson(value) {
-  if (typeof value !== "string") {
-    return value;
-  }
-
+  if (typeof value !== "string") return value;
   let current = value;
 
   for (let i = 0; i < 4; i++) {
-    if (typeof current !== "string") {
-      return current;
-    }
-
+    if (typeof current !== "string") return current;
     const text = current.trim();
-
-    if (!text || (!text.startsWith("{") && !text.startsWith("["))) {
-      return value;
-    }
-
+    if (!text || (!text.startsWith("{") && !text.startsWith("["))) return value;
     try {
       current = JSON.parse(text);
     } catch (error) {
@@ -619,10 +382,7 @@ function tryParseJson(value) {
 }
 
 function getRawText(value) {
-  if (typeof value === "string") {
-    return value;
-  }
-
+  if (typeof value === "string") return value;
   try {
     return JSON.stringify(value || {});
   } catch (error) {
@@ -633,13 +393,6 @@ function getRawText(value) {
 function extractFirstMatch(text, regex) {
   const match = String(text || "").match(regex);
   return match && match[1] ? String(match[1]) : null;
-}
-
-function escapeSupabaseOrValue(value) {
-  return String(value || "")
-    .replaceAll(",", "\\,")
-    .replaceAll(")", "\\)")
-    .replaceAll("(", "\\(");
 }
 
 function normalizeText(value) {
@@ -665,14 +418,8 @@ function escapeHtml(value) {
 }
 
 function getErrorMessage(error) {
-  if (!error) {
-    return "Không rõ lỗi";
-  }
-
-  if (error.message) {
-    return error.message;
-  }
-
+  if (!error) return "Không rõ lỗi";
+  if (error.message) return error.message;
   try {
     return JSON.stringify(error);
   } catch (e) {
