@@ -3,41 +3,863 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hàng hóa theo khách</title>
-  <link rel="stylesheet" href="./css/hang_hoa_theo_khach.css" />
+  <title></title>
+
   <script src="./js/internal_key.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./js/cod_config.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+      overflow: hidden;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .app {
+      width: 100%;
+      height: 100vh;
+      padding: 6px;
+      background: #f3f4f6;
+      overflow: hidden;
+    }
+
+    .content {
+      width: 100%;
+      height: calc(100vh - 12px);
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .topbar {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 7px;
+      margin-bottom: 7px;
+    }
+
+    #searchInput {
+      width: 220px;
+      height: 30px;
+      padding: 0 9px;
+      border: 1px solid #d1d5db;
+      border-radius: 7px;
+      font-size: 13px;
+      outline: none;
+      color: #111827;
+      background: #ffffff;
+    }
+
+    #searchInput:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+
+    .reload-btn {
+      height: 30px;
+      border: none;
+      border-radius: 7px;
+      color: #ffffff;
+      padding: 0 11px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      background: #2563eb;
+    }
+
+    .reload-btn:hover {
+      background: #1d4ed8;
+    }
+
+    .reload-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .message {
+      flex: 0 0 auto;
+      padding: 9px 10px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      color: #374151;
+      font-size: 13px;
+      line-height: 1.4;
+      margin-bottom: 7px;
+    }
+
+    .message.error {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #991b1b;
+    }
+
+    .table-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      background: #ffffff;
+    }
+
+    table {
+      width: 100%;
+      min-width: 520px;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #ffffff;
+      table-layout: fixed;
+    }
+
+    col.col-ma {
+      width: 130px;
+    }
+
+    col.col-ten {
+      width: auto;
+    }
+
+    col.col-sl {
+      width: 130px;
+    }
+
+    th,
+    td {
+      padding: 8px 9px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      white-space: nowrap;
+      vertical-align: middle;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #f9fafb;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+      position: sticky;
+    }
+
+    th.sortable:hover {
+      background: #eef2ff;
+    }
+
+    .th-inner {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .th-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sort-icon {
+      flex: 0 0 auto;
+      color: #2563eb;
+      font-size: 11px;
+    }
+
+    .col-resizer {
+      position: absolute;
+      top: -8px;
+      right: -9px;
+      width: 8px;
+      height: calc(100% + 16px);
+      cursor: col-resize;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .col-resizer::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 3px;
+      width: 1px;
+      height: 100%;
+      background: transparent;
+    }
+
+    th:hover .col-resizer::after {
+      background: #c7d2fe;
+    }
+
+    body.resizing {
+      cursor: col-resize;
+      user-select: none;
+    }
+
+    tr:hover td {
+      background: #f9fafb;
+    }
+
+    .right {
+      text-align: right;
+    }
+
+    .footer {
+      flex: 0 0 auto;
+      margin-top: 6px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        justify-content: stretch;
+      }
+
+      #searchInput {
+        flex: 1;
+        min-width: 0;
+        width: auto;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .app {
+        padding: 4px;
+      }
+
+      .content {
+        height: calc(100vh - 8px);
+        padding: 6px;
+        border-radius: 8px;
+      }
+
+      #searchInput,
+      .reload-btn {
+        font-size: 12px;
+      }
+
+      .reload-btn {
+        padding: 0 8px;
+      }
+
+      table {
+        min-width: 500px;
+        font-size: 12px;
+      }
+
+      th,
+      td {
+        padding: 7px;
+      }
+    }
+  </style>
 </head>
+
 <body>
   <div class="app">
     <main class="content">
       <div class="topbar">
-        <div class="title-line">
-          <b>Hàng hóa</b>
-          <span id="statusText">Đang khởi tạo...</span>
-        </div>
-        <div class="topbar-actions">
-          <input id="searchInput" type="search" placeholder="Tìm hàng..." />
-          <button id="reloadBtn" type="button" class="reload-btn">↻ Làm mới</button>
-        </div>
+        <input id="searchInput" type="search" placeholder="Tìm hàng..." />
+        <button id="reloadBtn" type="button" class="reload-btn">↻</button>
       </div>
+
       <div id="messageBox" class="message hidden"></div>
+
       <div id="tableWrap" class="table-wrap hidden">
-        <table>
+        <table id="dataTable">
+          <colgroup>
+            <col class="col-ma" data-col="ma_hang" />
+            <col class="col-ten" data-col="ten_hang" />
+            <col class="col-sl" data-col="so_luong" />
+          </colgroup>
+
           <thead>
             <tr>
-              <th class="sortable" data-sort="ma_hang">Mã hàng <span class="sort-icon"></span></th>
-              <th class="sortable" data-sort="ten_hang">Tên hàng <span class="sort-icon"></span></th>
-              <th class="sortable right" data-sort="so_luong">Tổng số lượng <span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="ma_hang" data-col="ma_hang">
+                <div class="th-inner">
+                  <span class="th-label">Mã hàng</span>
+                  <span class="sort-icon"></span>
+                  <span class="col-resizer" data-col="ma_hang"></span>
+                </div>
+              </th>
+
+              <th class="sortable" data-sort="ten_hang" data-col="ten_hang">
+                <div class="th-inner">
+                  <span class="th-label">Tên hàng</span>
+                  <span class="sort-icon"></span>
+                  <span class="col-resizer" data-col="ten_hang"></span>
+                </div>
+              </th>
+
+              <th class="sortable right" data-sort="so_luong" data-col="so_luong">
+                <div class="th-inner">
+                  <span class="th-label">Số lượng</span>
+                  <span class="sort-icon"></span>
+                  <span class="col-resizer" data-col="so_luong"></span>
+                </div>
+              </th>
             </tr>
           </thead>
+
           <tbody id="detailBody"></tbody>
         </table>
       </div>
+
       <div id="footerInfo" class="footer hidden"></div>
     </main>
   </div>
-  <script src="./js/hang_hoa_theo_khach_no_login.js"></script>
+
+  <script>
+    "use strict";
+
+    const VIEW_HANG_HOA_THEO_KHACH = "sql_hanghoa_theokhach";
+    const MAX_ROWS = 500;
+    const CHATWOOT_FETCH_INFO_EVENT = "chatwoot-dashboard-app:fetch-info";
+
+    let supabaseClient = null;
+    let chatwootContext = null;
+    let chatwootContextRaw = "";
+    let chatwootContextReadyResolvers = [];
+
+    let allRows = [];
+    let filteredRows = [];
+    let currentMakh = "";
+    let sortField = "so_luong";
+    let sortDirection = "desc";
+
+    const reloadBtn = document.getElementById("reloadBtn");
+    const searchInput = document.getElementById("searchInput");
+    const messageBox = document.getElementById("messageBox");
+    const tableWrap = document.getElementById("tableWrap");
+    const detailBody = document.getElementById("detailBody");
+    const footerInfo = document.getElementById("footerInfo");
+    const dataTable = document.getElementById("dataTable");
+
+    window.addEventListener("message", handleChatwootMessage);
+
+    reloadBtn.addEventListener("click", function () {
+      loadByMakh();
+    });
+
+    searchInput.addEventListener("input", function () {
+      applySearchSortRender();
+    });
+
+    document.querySelectorAll("th.sortable").forEach(function (th) {
+      th.addEventListener("click", function (event) {
+        if (event.target && event.target.classList.contains("col-resizer")) return;
+
+        const field = th.getAttribute("data-sort");
+        if (!field) return;
+
+        if (sortField === field) {
+          sortDirection = sortDirection === "asc" ? "desc" : "asc";
+        } else {
+          sortField = field;
+          sortDirection = field === "so_luong" ? "desc" : "asc";
+        }
+
+        applySearchSortRender();
+      });
+    });
+
+    initResizableColumns();
+    init();
+
+    async function init() {
+      await initSupabase();
+
+      requestChatwootContext();
+      setTimeout(requestChatwootContext, 300);
+      setTimeout(requestChatwootContext, 900);
+      setTimeout(requestChatwootContext, 1600);
+
+      if (!supabaseClient) {
+        showMessage("Chưa lấy được Supabase URL hoặc anon key.", true);
+        return;
+      }
+
+      await loadByMakh();
+    }
+
+    async function initSupabase() {
+      try {
+        let supabaseUrl = "";
+        let supabaseAnon = "";
+
+        try {
+          const resp = await fetch("/api/getConfig", {
+            headers: {
+              "x-internal-key": window.getInternalKey ? window.getInternalKey() : ""
+            }
+          });
+
+          if (resp.ok) {
+            const cfg = await resp.json();
+            supabaseUrl = cfg.url || "";
+            supabaseAnon = cfg.anon || cfg.key || "";
+          }
+        } catch (error) {
+          console.warn("Không gọi được /api/getConfig trực tiếp:", error);
+        }
+
+        if ((!supabaseUrl || !supabaseAnon) && window.configReady) {
+          await window.configReady;
+
+          if (typeof window.getConfig === "function") {
+            const urlValue = window.getConfig("url");
+            const anonValue = window.getConfig("anon");
+
+            if (typeof urlValue === "string") supabaseUrl = supabaseUrl || urlValue;
+            if (typeof anonValue === "string") supabaseAnon = supabaseAnon || anonValue;
+          }
+        }
+
+        if (!supabaseUrl || !supabaseAnon) {
+          return;
+        }
+
+        supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnon);
+      } catch (error) {
+        console.error("Lỗi initSupabase:", error);
+      }
+    }
+
+    async function loadByMakh() {
+      setLoading(true);
+
+      try {
+        let makh =
+          getQueryParam("makh") ||
+          getQueryParam("ma_kh") ||
+          getQueryParam("ma_khach_hang");
+
+        if (!makh) {
+          await waitForChatwootContext(1800);
+          makh = getMakhFromChatwootContext();
+        }
+
+        if (!makh) {
+          currentMakh = "";
+          hideTable("Không lấy được mã khách hàng.", false);
+          return;
+        }
+
+        currentMakh = makh;
+        await loadHangHoaTheoKhach(makh);
+      } catch (error) {
+        hideTable("Lỗi tải dữ liệu: " + getErrorMessage(error), true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function loadHangHoaTheoKhach(makh) {
+      const { data, error } = await supabaseClient
+        .from(VIEW_HANG_HOA_THEO_KHACH)
+        .select("ma_hang, ten_hang, so_luong")
+        .eq("makh", makh)
+        .order("so_luong", { ascending: false })
+        .limit(MAX_ROWS);
+
+      if (error) throw error;
+
+      allRows = data || [];
+      applySearchSortRender();
+    }
+
+    function applySearchSortRender() {
+      const keyword = normalizeText(searchInput.value);
+
+      filteredRows = allRows.filter(function (item) {
+        if (!keyword) return true;
+
+        const text = normalizeText(
+          String(item.ma_hang || "") + " " + String(item.ten_hang || "")
+        );
+
+        return text.includes(keyword);
+      });
+
+      filteredRows.sort(compareRows);
+      renderHangHoa(filteredRows, currentMakh);
+    }
+
+    function compareRows(a, b) {
+      let va = a[sortField];
+      let vb = b[sortField];
+
+      if (sortField === "so_luong") {
+        va = Number(va || 0);
+        vb = Number(vb || 0);
+      } else {
+        va = normalizeText(va);
+        vb = normalizeText(vb);
+      }
+
+      if (va < vb) return sortDirection === "asc" ? -1 : 1;
+      if (va > vb) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    }
+
+    function renderHangHoa(rows, makh) {
+      updateSortIcons();
+
+      if (!allRows.length) {
+        hideTable("Không tìm thấy hàng hóa đã mua của khách này.", false);
+        return;
+      }
+
+      if (!rows.length) {
+        detailBody.innerHTML = `
+          <tr>
+            <td colspan="3">Không có mặt hàng nào khớp từ khóa tìm kiếm.</td>
+          </tr>
+        `;
+
+        tableWrap.classList.remove("hidden");
+        footerInfo.classList.remove("hidden");
+        footerInfo.textContent = "0 / " + allRows.length + " mặt hàng.";
+        hideMessage();
+        return;
+      }
+
+      detailBody.innerHTML = rows.map(function (item) {
+        return `
+          <tr>
+            <td title="${escapeHtml(item.ma_hang)}">${escapeHtml(item.ma_hang)}</td>
+            <td title="${escapeHtml(item.ten_hang)}">${escapeHtml(item.ten_hang)}</td>
+            <td class="right" title="${escapeHtml(formatNumber(item.so_luong))}">
+              ${escapeHtml(formatNumber(item.so_luong))}
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      tableWrap.classList.remove("hidden");
+      footerInfo.classList.remove("hidden");
+
+      const suffix = searchInput.value.trim()
+        ? rows.length + " / " + allRows.length + " mặt hàng"
+        : rows.length + " mặt hàng";
+
+      footerInfo.textContent = suffix + ".";
+      hideMessage();
+    }
+
+    function updateSortIcons() {
+      document.querySelectorAll("th.sortable").forEach(function (th) {
+        const icon = th.querySelector(".sort-icon");
+        const field = th.getAttribute("data-sort");
+        if (!icon) return;
+
+        icon.textContent = field === sortField
+          ? (sortDirection === "asc" ? "▲" : "▼")
+          : "";
+      });
+    }
+
+    function hideTable(message, isError) {
+      allRows = [];
+      filteredRows = [];
+      detailBody.innerHTML = "";
+      tableWrap.classList.add("hidden");
+      footerInfo.classList.add("hidden");
+      footerInfo.textContent = "";
+      showMessage(message, isError);
+    }
+
+    function showMessage(message, isError) {
+      messageBox.classList.remove("hidden");
+      messageBox.className = isError ? "message error" : "message";
+      messageBox.textContent = message || "";
+    }
+
+    function hideMessage() {
+      messageBox.classList.add("hidden");
+      messageBox.textContent = "";
+    }
+
+    function setLoading(isLoading) {
+      reloadBtn.disabled = isLoading;
+      reloadBtn.textContent = isLoading ? "..." : "↻";
+    }
+
+    function getQueryParam(name) {
+      const value = new URLSearchParams(window.location.search).get(name);
+      if (!value || String(value).includes("{{")) return "";
+      return String(value).trim();
+    }
+
+    function getMakhFromChatwootContext() {
+      const ctx = window.__CHATWOOT_APP_CONTEXT__ || chatwootContext || null;
+      const c = ctx && ctx.conversation ? ctx.conversation : null;
+
+      const candidates = [
+        ctx && ctx.contact && ctx.contact.custom_attributes,
+        ctx && ctx.sender && ctx.sender.custom_attributes,
+        c && c.sender && c.sender.custom_attributes,
+        c && c.contact && c.contact.custom_attributes,
+        c && c.meta && c.meta.sender && c.meta.sender.custom_attributes,
+        c && c.meta && c.meta.contact && c.meta.contact.custom_attributes,
+        ctx && ctx.conversation && ctx.conversation.sender && ctx.conversation.sender.custom_attributes,
+        ctx && ctx.conversation && ctx.conversation.contact && ctx.conversation.contact.custom_attributes
+      ];
+
+      for (const attrs of candidates) {
+        if (!attrs || typeof attrs !== "object") continue;
+
+        const makh =
+          attrs.makh ||
+          attrs.ma_kh ||
+          attrs.maKH ||
+          attrs.ma_khach_hang ||
+          attrs["mã khách hàng"] ||
+          attrs["ma khach hang"] ||
+          attrs.customer_code ||
+          "";
+
+        if (String(makh).trim()) return String(makh).trim();
+      }
+
+      if (chatwootContextRaw) {
+        const rawMakh =
+          extractFirstMatch(chatwootContextRaw, /["']makh["']\s*:\s*["']([^"']+)["']/i) ||
+          extractFirstMatch(chatwootContextRaw, /["']ma_kh["']\s*:\s*["']([^"']+)["']/i) ||
+          extractFirstMatch(chatwootContextRaw, /["']ma_khach_hang["']\s*:\s*["']([^"']+)["']/i) ||
+          extractFirstMatch(chatwootContextRaw, /["']mã khách hàng["']\s*:\s*["']([^"']+)["']/i);
+
+        if (rawMakh) return String(rawMakh).trim();
+      }
+
+      return "";
+    }
+
+    function handleChatwootMessage(event) {
+      chatwootContextRaw = getRawText(event.data);
+      window.__CHATWOOT_APP_CONTEXT_RAW__ = chatwootContextRaw;
+
+      const context = extractChatwootContextFromMessage(event.data);
+      if (context) {
+        chatwootContext = context;
+        window.__CHATWOOT_APP_CONTEXT__ = context;
+      }
+
+      resolveWaitingChatwootContext();
+    }
+
+    function extractChatwootContextFromMessage(rawData) {
+      const payload = tryParseJson(rawData);
+      if (!payload || typeof payload !== "object") return null;
+
+      if (payload.event === "appContext") return payload.data || null;
+      if (payload.data && payload.data.event === "appContext") return payload.data.data || null;
+      if (payload.conversation && typeof payload.conversation === "object") return payload;
+      if (payload.data && payload.data.conversation && typeof payload.data.conversation === "object") return payload.data;
+
+      return null;
+    }
+
+    function requestChatwootContext() {
+      try {
+        window.parent.postMessage(CHATWOOT_FETCH_INFO_EVENT, "*");
+      } catch (error) {
+        console.warn("Không gửi được yêu cầu lấy Chatwoot context:", error);
+      }
+    }
+
+    function waitForChatwootContext(timeoutMs) {
+      if (chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || chatwootContextRaw) {
+        return Promise.resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
+      }
+
+      requestChatwootContext();
+
+      return new Promise(function (resolve) {
+        const timer = setTimeout(function () {
+          resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
+        }, timeoutMs || 1500);
+
+        chatwootContextReadyResolvers.push(function (context) {
+          clearTimeout(timer);
+          resolve(context || null);
+        });
+      });
+    }
+
+    function resolveWaitingChatwootContext() {
+      const resolvers = chatwootContextReadyResolvers;
+      chatwootContextReadyResolvers = [];
+
+      resolvers.forEach(function (resolve) {
+        resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
+      });
+    }
+
+    function tryParseJson(value) {
+      if (typeof value !== "string") return value;
+
+      let current = value;
+
+      for (let i = 0; i < 4; i++) {
+        if (typeof current !== "string") return current;
+
+        const text = current.trim();
+
+        if (!text || (!text.startsWith("{") && !text.startsWith("["))) {
+          return value;
+        }
+
+        try {
+          current = JSON.parse(text);
+        } catch (error) {
+          return value;
+        }
+      }
+
+      return current;
+    }
+
+    function getRawText(value) {
+      if (typeof value === "string") return value;
+
+      try {
+        return JSON.stringify(value || {});
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function extractFirstMatch(text, regex) {
+      const match = String(text || "").match(regex);
+      return match && match[1] ? String(match[1]) : null;
+    }
+
+    function normalizeText(value) {
+      return String(value || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+    }
+
+    function formatNumber(value) {
+      const number = Number(value || 0);
+      return Number.isFinite(number) ? number.toLocaleString("vi-VN") : "";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function getErrorMessage(error) {
+      if (!error) return "Không rõ lỗi";
+      if (error.message) return error.message;
+
+      try {
+        return JSON.stringify(error);
+      } catch (e) {
+        return String(error);
+      }
+    }
+
+    function initResizableColumns() {
+      const resizers = document.querySelectorAll(".col-resizer");
+
+      resizers.forEach(function (resizer) {
+        resizer.addEventListener("mousedown", startResize);
+        resizer.addEventListener("touchstart", startResize, { passive: false });
+      });
+    }
+
+    function startResize(event) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const colName = event.target.getAttribute("data-col");
+      if (!colName) return;
+
+      const col = dataTable.querySelector('col[data-col="' + colName + '"]');
+      if (!col) return;
+
+      const startX = getClientX(event);
+      const startWidth = col.getBoundingClientRect().width || parseFloat(col.style.width) || 120;
+
+      document.body.classList.add("resizing");
+
+      function onMove(moveEvent) {
+        moveEvent.preventDefault();
+
+        const currentX = getClientX(moveEvent);
+        const diff = currentX - startX;
+        const nextWidth = Math.max(70, startWidth + diff);
+
+        col.style.width = nextWidth + "px";
+      }
+
+      function onEnd() {
+        document.body.classList.remove("resizing");
+
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onEnd);
+        window.removeEventListener("touchmove", onMove);
+        window.removeEventListener("touchend", onEnd);
+      }
+
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("mouseup", onEnd);
+      window.addEventListener("touchmove", onMove, { passive: false });
+      window.addEventListener("touchend", onEnd);
+    }
+
+    function getClientX(event) {
+      if (event.touches && event.touches.length) {
+        return event.touches[0].clientX;
+      }
+
+      if (event.changedTouches && event.changedTouches.length) {
+        return event.changedTouches[0].clientX;
+      }
+
+      return event.clientX || 0;
+    }
+  </script>
 </body>
 </html>
