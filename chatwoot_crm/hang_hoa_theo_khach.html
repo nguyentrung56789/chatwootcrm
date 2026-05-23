@@ -3,72 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <title>Hàng hóa theo khách</title>
-
   <link rel="stylesheet" href="./css/hang_hoa_theo_khach.css" />
-
   <script src="./js/internal_key.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./js/cod_config.js"></script>
 </head>
-
 <body>
   <div class="app">
-    <main class="box">
-      <div class="toolbar">
-        <input id="searchInput" type="search" placeholder="Tìm hàng..." />
-        <button id="reloadBtn" type="button" title="Làm mới">↻</button>
+    <main class="content">
+      <div class="topbar">
+        <div class="title-line">
+          <b>Hàng hóa</b>
+          <span id="statusText">Đang khởi tạo...</span>
+        </div>
+        <div class="topbar-actions">
+          <input id="searchInput" type="search" placeholder="Tìm hàng..." />
+          <button id="reloadBtn" type="button" class="reload-btn">↻ Làm mới</button>
+        </div>
       </div>
-
-      <div id="customerInfo" class="customer hidden"></div>
-
       <div id="messageBox" class="message hidden"></div>
-
       <div id="tableWrap" class="table-wrap hidden">
-        <table id="dataTable">
-          <colgroup>
-            <col class="col-code" data-col="ma_hang" />
-            <col class="col-name" data-col="ten_hang" />
-            <col class="col-qty" data-col="so_luong" />
-          </colgroup>
-
+        <table>
           <thead>
             <tr>
-              <th class="sortable" data-sort="ma_hang">
-                <div class="th-inner">
-                  <span class="th-title">Mã hàng</span>
-                  <span class="sort-icon"></span>
-                  <span class="resizer" data-col="ma_hang"></span>
-                </div>
-              </th>
-
-              <th class="sortable" data-sort="ten_hang">
-                <div class="th-inner">
-                  <span class="th-title">Tên hàng</span>
-                  <span class="sort-icon"></span>
-                  <span class="resizer" data-col="ten_hang"></span>
-                </div>
-              </th>
-
-              <th class="sortable right" data-sort="so_luong">
-                <div class="th-inner">
-                  <span class="th-title">Số lượng</span>
-                  <span class="sort-icon"></span>
-                  <span class="resizer" data-col="so_luong"></span>
-                </div>
-              </th>
+              <th class="sortable" data-sort="ma_hang">Mã hàng <span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="ten_hang">Tên hàng <span class="sort-icon"></span></th>
+              <th class="sortable right" data-sort="so_luong">Tổng số lượng <span class="sort-icon"></span></th>
             </tr>
           </thead>
-
           <tbody id="detailBody"></tbody>
         </table>
       </div>
-
       <div id="footerInfo" class="footer hidden"></div>
     </main>
   </div>
-
-  <script src="./js/hang_hoa_theo_khach.js"></script>
+  <script src="./js/hang_hoa_theo_khach_no_login.js"></script>
 </body>
 </html>
