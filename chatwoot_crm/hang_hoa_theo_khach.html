@@ -4,19 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>Chi tiết đơn hàng</title>
+  <title>Hàng hóa đã mua</title>
 
   <script src="./js/internal_key.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./js/cod_config.js"></script>
+  <script src="./js/auth_token.js"></script>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -27,9 +25,7 @@
       overflow: hidden;
     }
 
-    .hidden {
-      display: none !important;
-    }
+    .hidden { display: none !important; }
 
     .app {
       width: 100%;
@@ -76,11 +72,18 @@
       white-space: nowrap;
     }
 
-    .reload-btn {
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+
+    .reload-btn,
+    .logout-btn {
       height: 32px;
       border: none;
       border-radius: 7px;
-      background: #2563eb;
       color: #ffffff;
       padding: 0 12px;
       font-size: 13px;
@@ -89,11 +92,24 @@
       white-space: nowrap;
     }
 
+    .reload-btn {
+      background: #2563eb;
+    }
+
     .reload-btn:hover {
       background: #1d4ed8;
     }
 
-    .reload-btn:disabled {
+    .logout-btn {
+      background: #ef4444;
+    }
+
+    .logout-btn:hover {
+      background: #dc2626;
+    }
+
+    .reload-btn:disabled,
+    .logout-btn:disabled {
       opacity: 0.6;
       cursor: not-allowed;
     }
@@ -132,7 +148,7 @@
 
     table {
       width: 100%;
-      min-width: 900px;
+      min-width: 650px;
       border-collapse: collapse;
       font-size: 13px;
       background: #ffffff;
@@ -171,10 +187,87 @@
       color: #6b7280;
     }
 
+    .login-popup {
+      position: fixed;
+      inset: 0;
+      background: rgba(7, 16, 37, 0.72);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .login-modal {
+      width: min(380px, 92vw);
+      background: #0f1830;
+      color: #e6edff;
+      border-radius: 16px;
+      padding: 26px 22px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
+      text-align: center;
+    }
+
+    .login-modal h2 {
+      margin: 0 0 16px;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+
+    .login-modal input,
+    .login-modal button {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 10px;
+      font-size: 15px;
+    }
+
+    .login-modal input {
+      margin: 6px 0;
+      border: 1px solid #233043;
+      background: #071526;
+      color: #e6edff;
+      outline: none;
+    }
+
+    .login-modal input:focus {
+      border-color: #2dd4bf;
+      box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15);
+    }
+
+    #popupLoginBtn {
+      margin-top: 10px;
+      border: 0;
+      background: #2dd4bf;
+      color: #042023;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #popupLoginBtn:hover {
+      background: #5eead4;
+    }
+
+    #popupLoginBtn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .login-message {
+      min-height: 18px;
+      margin-top: 10px;
+      color: #ff6b6b;
+      font-size: 14px;
+    }
+
+    .login-note {
+      margin-top: 8px;
+      color: #9aa7c7;
+      font-size: 12px;
+    }
+
     @media (max-width: 600px) {
-      .app {
-        padding: 5px;
-      }
+      .app { padding: 5px; }
 
       .content {
         height: calc(100vh - 10px);
@@ -182,59 +275,67 @@
         border-radius: 8px;
       }
 
-      .title {
-        font-size: 14px;
-      }
+      .title { font-size: 14px; }
 
-      .reload-btn {
+      .reload-btn,
+      .logout-btn {
         height: 30px;
         padding: 0 9px;
         font-size: 12px;
       }
 
       table {
-        min-width: 780px;
+        min-width: 560px;
         font-size: 12px;
       }
 
-      th,
-      td {
-        padding: 6px;
-      }
+      th, td { padding: 6px; }
     }
   </style>
 </head>
 
 <body>
+  <div id="loginPopup" class="login-popup hidden">
+    <div class="login-modal">
+      <h2>🔐 Đăng nhập</h2>
+
+      <input id="popupMaNvInput" type="text" placeholder="Mã nhân viên / số điện thoại" autocomplete="username" />
+      <input id="popupMatKhauInput" type="password" placeholder="Mật khẩu" autocomplete="current-password" />
+
+      <button id="popupLoginBtn">Đăng nhập</button>
+
+      <div class="login-message" id="popupLoginMessage"></div>
+      <div class="login-note" id="popupCfgNote">Đang khởi tạo cấu hình...</div>
+    </div>
+  </div>
+
   <div class="app">
     <main class="content">
       <div class="header">
         <div>
-          <div class="title">Chi tiết đơn hàng</div>
-          <div id="statusText" class="status">Đang lấy mã khách...</div>
+          <div class="title">Hàng hóa đã mua</div>
+          <div id="statusText" class="status">Đang khởi tạo...</div>
         </div>
 
-        <button id="reloadBtn" type="button" class="reload-btn">↻ Làm mới</button>
+        <div class="header-actions">
+          <button id="reloadBtn" type="button" class="reload-btn">↻ Làm mới</button>
+          <button id="logoutBtn" type="button" class="logout-btn">Đăng xuất</button>
+        </div>
       </div>
 
       <div id="messageBox" class="message">
-        Đang kiểm tra makh...
+        Vui lòng đăng nhập để xem dữ liệu.
       </div>
 
       <div id="tableWrap" class="table-wrap hidden">
         <table>
           <thead>
             <tr>
-              <th>Mã HĐ</th>
-              <th>Ngày</th>
               <th>Mã hàng</th>
               <th>Tên hàng</th>
-              <th class="right">Số lượng</th>
-              <th class="right">Đơn giá</th>
-              <th class="right">Thành tiền</th>
+              <th class="right">Tổng số lượng</th>
             </tr>
           </thead>
-
           <tbody id="detailBody"></tbody>
         </table>
       </div>
@@ -244,116 +345,223 @@
   </div>
 
   <script>
-    const VIEW_CHI_TIET_THEO_KH = "v_chatwoot_ct_don_hang";
-    const MAX_ROWS = 300;
+    const LOGIN_STORAGE_KEY = "chatwoot_crm_user";
+    const TABLE_NHAN_VIEN = getConfiguredTableName("index", "kv_nhan_vien");
+    const VIEW_HANGHOA_THEO_KHACH = "sql_hanghoa_theokhach";
+    const MAX_ROWS = 500;
 
-    const CHATWOOT_FETCH_INFO_EVENT = "chatwoot-dashboard-app:fetch-info";
-
+    let currentUser = getLoginUser();
     let supabaseClient = null;
-    let chatwootContext = null;
-    let chatwootContextRaw = "";
-    let chatwootContextReadyResolvers = [];
+    let SUPABASE_REST_URL = "";
+    let SUPABASE_REST_ANON = "";
+
+    const loginPopup = document.getElementById("loginPopup");
+    const popupMaNvInput = document.getElementById("popupMaNvInput");
+    const popupMatKhauInput = document.getElementById("popupMatKhauInput");
+    const popupLoginBtn = document.getElementById("popupLoginBtn");
+    const popupLoginMessage = document.getElementById("popupLoginMessage");
+    const popupCfgNote = document.getElementById("popupCfgNote");
 
     const reloadBtn = document.getElementById("reloadBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
     const statusText = document.getElementById("statusText");
     const messageBox = document.getElementById("messageBox");
     const tableWrap = document.getElementById("tableWrap");
     const detailBody = document.getElementById("detailBody");
     const footerInfo = document.getElementById("footerInfo");
 
-    window.addEventListener("message", handleChatwootMessage);
+    popupLoginBtn.addEventListener("click", loginFromPopup);
+
+    popupMatKhauInput.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        loginFromPopup();
+      }
+    });
 
     reloadBtn.addEventListener("click", function () {
+      if (!currentUser) {
+        openLoginPopup();
+        return;
+      }
+
       loadByMakh();
+    });
+
+    logoutBtn.addEventListener("click", function () {
+      localStorage.removeItem(LOGIN_STORAGE_KEY);
+      currentUser = null;
+      detailBody.innerHTML = "";
+      tableWrap.classList.add("hidden");
+      footerInfo.classList.add("hidden");
+      footerInfo.textContent = "";
+      statusText.textContent = "Chưa đăng nhập";
+      messageBox.className = "message";
+      messageBox.textContent = "Vui lòng đăng nhập để xem dữ liệu.";
+      openLoginPopup();
     });
 
     init();
 
     async function init() {
+      await initSupabase();
+
+      if (!supabaseClient) {
+        statusText.textContent = "Lỗi cấu hình";
+        hideTable("Lỗi khởi tạo: Chưa lấy được Supabase URL hoặc anon key từ /api/getConfig hoặc config.js", true);
+        openLoginPopup();
+        return;
+      }
+
+      if (!currentUser) {
+        statusText.textContent = "Chưa đăng nhập";
+        hideTable("Vui lòng đăng nhập để xem dữ liệu.", false);
+        openLoginPopup();
+        return;
+      }
+
+      closeLoginPopup();
+      showUserInfo();
+      await loadByMakh();
+    }
+
+    async function initSupabase() {
       try {
-        await initSupabaseClient();
+        popupCfgNote.textContent = "Đang lấy cấu hình Supabase.";
 
-        requestChatwootContext();
-        setTimeout(requestChatwootContext, 300);
-        setTimeout(requestChatwootContext, 900);
+        let supabaseUrl = "";
+        let supabaseAnon = "";
 
-        await loadByMakh();
+        try {
+          const resp = await fetch("/api/getConfig", {
+            headers: {
+              "x-internal-key": window.getInternalKey ? window.getInternalKey() : ""
+            }
+          });
+
+          if (resp.ok) {
+            const cfg = await resp.json();
+            supabaseUrl = cfg.url || "";
+            supabaseAnon = cfg.anon || cfg.key || "";
+          }
+        } catch (error) {
+          console.warn("Không gọi được /api/getConfig trực tiếp:", error);
+        }
+
+        if ((!supabaseUrl || !supabaseAnon) && window.configReady) {
+          await window.configReady;
+
+          if (typeof window.getConfig === "function") {
+            const urlValue = window.getConfig("url");
+            const anonValue = window.getConfig("anon");
+
+            if (typeof urlValue === "string") {
+              supabaseUrl = supabaseUrl || urlValue;
+            }
+
+            if (typeof anonValue === "string") {
+              supabaseAnon = supabaseAnon || anonValue;
+            }
+          }
+        }
+
+        if (!supabaseUrl || !supabaseAnon) {
+          popupCfgNote.textContent = "Thiếu cấu hình Supabase";
+          popupLoginMessage.textContent = "Chưa lấy được Supabase URL hoặc anon key.";
+          return;
+        }
+
+        SUPABASE_REST_URL = supabaseUrl;
+        SUPABASE_REST_ANON = supabaseAnon;
+
+        supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnon);
+
+        popupCfgNote.textContent = "Sẵn sàng đăng nhập";
+        popupLoginMessage.textContent = "";
       } catch (error) {
-        statusText.textContent = "Lỗi khởi tạo";
-        hideTable("Lỗi khởi tạo: " + getErrorMessage(error), true);
+        console.error("Lỗi initSupabase:", error);
+        popupCfgNote.textContent = "Lỗi cấu hình Supabase";
+        popupLoginMessage.textContent = error.message || "Không lấy được cấu hình.";
       }
     }
 
-    async function initSupabaseClient() {
-      let supabaseUrl = "";
-      let supabaseAnon = "";
+    async function loginFromPopup() {
+      const maNv = popupMaNvInput.value.trim();
+      const matKhau = popupMatKhauInput.value.trim();
 
-      try {
-        const resp = await fetch("/api/getConfig", {
-          headers: {
-            "x-internal-key": window.getInternalKey ? window.getInternalKey() : ""
-          }
-        });
+      popupLoginMessage.textContent = "";
 
-        if (resp.ok) {
-          const cfg = await resp.json();
-          supabaseUrl = cfg.url || "";
-          supabaseAnon = cfg.anon || cfg.key || "";
-        }
-      } catch (error) {
-        console.warn("Không gọi được /api/getConfig trực tiếp:", error);
+      if (!maNv || !matKhau) {
+        popupLoginMessage.textContent = "Vui lòng nhập mã nhân viên và mật khẩu.";
+        return;
       }
 
-      if ((!supabaseUrl || !supabaseAnon) && window.configReady) {
-        await window.configReady;
-
-        if (typeof window.getConfig === "function") {
-          const urlValue = window.getConfig("url");
-          const anonValue = window.getConfig("anon");
-
-          if (typeof urlValue === "string") {
-            supabaseUrl = supabaseUrl || urlValue;
-          }
-
-          if (typeof anonValue === "string") {
-            supabaseAnon = supabaseAnon || anonValue;
-          }
-        }
+      if (!supabaseClient) {
+        popupLoginMessage.textContent = "Supabase chưa sẵn sàng.";
+        return;
       }
 
-      if (!supabaseUrl || !supabaseAnon) {
-        throw new Error("Chưa lấy được Supabase URL hoặc anon key từ /api/getConfig hoặc config.js");
+      popupLoginBtn.disabled = true;
+      popupLoginBtn.textContent = "Đang đăng nhập...";
+
+      const { data, error } = await supabaseClient
+        .from(TABLE_NHAN_VIEN)
+        .select("ma_nv, mat_khau, ten_nv, dien_thoai, hoat_dong, admin")
+        .or(`ma_nv.eq.${escapePostgrestValue(maNv)},dien_thoai.eq.${escapePostgrestValue(maNv)}`)
+        .eq("mat_khau", matKhau)
+        .maybeSingle();
+
+      popupLoginBtn.disabled = false;
+      popupLoginBtn.textContent = "Đăng nhập";
+
+      if (error) {
+        console.error("Lỗi đăng nhập:", error);
+        popupLoginMessage.textContent = "Lỗi kiểm tra đăng nhập.";
+        return;
       }
 
-      supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnon);
+      if (!data) {
+        popupLoginMessage.textContent = "Sai mã nhân viên hoặc mật khẩu.";
+        return;
+      }
+
+      if (data.hoat_dong === false) {
+        popupLoginMessage.textContent = "Tài khoản đã bị khóa.";
+        return;
+      }
+
+      currentUser = {
+        ma_nv: data.ma_nv,
+        ten_nv: data.ten_nv,
+        admin: data.admin === true,
+        login_at: new Date().toISOString()
+      };
+
+      localStorage.setItem(LOGIN_STORAGE_KEY, JSON.stringify(currentUser));
+
+      popupMaNvInput.value = "";
+      popupMatKhauInput.value = "";
+      popupLoginMessage.textContent = "";
+
+      closeLoginPopup();
+      showUserInfo();
+      await loadByMakh();
     }
 
     async function loadByMakh() {
       setLoading(true);
 
       try {
-        /*
-          Ưu tiên lấy makh từ URL:
-          ct_don_hang.html?makh={{contact.custom_attributes.makh}}
-
-          Cách này nhanh hơn vì không phải chờ Chatwoot appContext.
-        */
-        let makh = getQueryParam("makh") || getQueryParam("ma_kh");
+        const makh = getQueryParam("makh") || getQueryParam("ma_kh");
 
         if (!makh) {
-          await waitForChatwootContext(800);
-          makh = getMakhFromChatwootContext();
-        }
-
-        if (!makh) {
-          statusText.textContent = "Không có makh";
-          hideTable("Contact Chatwoot chưa có custom_attributes.makh. Bảng đang được ẩn.", false);
+          statusText.textContent = "Thiếu makh";
+          hideTable("Link chưa truyền makh. Cần dùng: ct_don_hang.html?makh={{contact.custom_attributes.makh}}", false);
           return;
         }
 
         statusText.textContent = "Mã khách: " + makh;
 
-        await loadDetailsByMakh(makh);
+        await loadHangHoaByMakh(makh);
       } catch (error) {
         statusText.textContent = "Lỗi tải dữ liệu";
         hideTable("Lỗi tải dữ liệu: " + getErrorMessage(error), true);
@@ -362,12 +570,12 @@
       }
     }
 
-    async function loadDetailsByMakh(makh) {
+    async function loadHangHoaByMakh(makh) {
       const { data, error } = await supabaseClient
-        .from(VIEW_CHI_TIET_THEO_KH)
-        .select("ma_hd, ngay, ma_hang, ten_hang, so_luong, don_gia, thanh_tien")
+        .from(VIEW_HANGHOA_THEO_KHACH)
+        .select("ma_hang, ten_hang, so_luong")
         .eq("makh", makh)
-        .order("ngay", { ascending: false })
+        .order("so_luong", { ascending: false })
         .limit(MAX_ROWS);
 
       if (error) {
@@ -379,20 +587,16 @@
 
     function renderDetails(rows, makh) {
       if (!rows.length) {
-        hideTable("Không tìm thấy chi tiết đơn hàng của mã khách: " + makh, false);
+        hideTable("Không tìm thấy hàng hóa đã mua của mã khách: " + makh, false);
         return;
       }
 
       detailBody.innerHTML = rows.map(function (item) {
         return `
           <tr>
-            <td>${escapeHtml(item.ma_hd)}</td>
-            <td>${escapeHtml(formatDateTime(item.ngay))}</td>
             <td>${escapeHtml(item.ma_hang)}</td>
             <td>${escapeHtml(item.ten_hang)}</td>
             <td class="right">${escapeHtml(formatNumber(item.so_luong))}</td>
-            <td class="right">${escapeHtml(formatMoney(item.don_gia))}</td>
-            <td class="right">${escapeHtml(formatMoney(item.thanh_tien))}</td>
           </tr>
         `;
       }).join("");
@@ -402,7 +606,9 @@
 
       tableWrap.classList.remove("hidden");
       footerInfo.classList.remove("hidden");
-      footerInfo.textContent = "Tìm thấy " + rows.length + " dòng chi tiết.";
+      footerInfo.textContent =
+        "Tìm thấy " + rows.length + " dòng hàng hóa. Đăng nhập: " +
+        ((currentUser && (currentUser.ten_nv || currentUser.ma_nv)) || "");
     }
 
     function hideTable(message, isError) {
@@ -420,6 +626,47 @@
       reloadBtn.textContent = isLoading ? "Đang tải..." : "↻ Làm mới";
     }
 
+    function getConfiguredTableName(configName, fallbackTable) {
+      try {
+        if (typeof window.getConfig === "function") {
+          const cfg = window.getConfig(configName);
+
+          if (cfg && typeof cfg === "object" && cfg.table) {
+            return cfg.table;
+          }
+        }
+      } catch (error) {
+        console.warn("Không lấy được cấu hình bảng:", configName, error);
+      }
+
+      return fallbackTable;
+    }
+
+    function getLoginUser() {
+      try {
+        const raw = localStorage.getItem(LOGIN_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function openLoginPopup() {
+      loginPopup.classList.remove("hidden");
+
+      setTimeout(function () {
+        popupMaNvInput.focus();
+      }, 100);
+    }
+
+    function closeLoginPopup() {
+      loginPopup.classList.add("hidden");
+    }
+
+    function showUserInfo() {
+      statusText.textContent = "Đăng nhập: " + (currentUser.ten_nv || currentUser.ma_nv) + " - " + currentUser.ma_nv;
+    }
+
     function getQueryParam(name) {
       const value = new URLSearchParams(window.location.search).get(name);
 
@@ -430,212 +677,13 @@
       return String(value).trim();
     }
 
-    function getMakhFromChatwootContext() {
-      const ctx = window.__CHATWOOT_APP_CONTEXT__ || chatwootContext || null;
-      const c = ctx && ctx.conversation ? ctx.conversation : null;
-
-      const candidates = [
-        ctx && ctx.contact && ctx.contact.custom_attributes,
-        ctx && ctx.sender && ctx.sender.custom_attributes,
-
-        c && c.sender && c.sender.custom_attributes,
-        c && c.contact && c.contact.custom_attributes,
-
-        c && c.meta && c.meta.sender && c.meta.sender.custom_attributes,
-        c && c.meta && c.meta.contact && c.meta.contact.custom_attributes,
-
-        ctx && ctx.conversation && ctx.conversation.sender && ctx.conversation.sender.custom_attributes,
-        ctx && ctx.conversation && ctx.conversation.contact && ctx.conversation.contact.custom_attributes
-      ];
-
-      for (const attrs of candidates) {
-        if (!attrs || typeof attrs !== "object") {
-          continue;
-        }
-
-        const makh =
-          attrs.makh ||
-          attrs.ma_kh ||
-          attrs.maKH ||
-          attrs.customer_code ||
-          "";
-
-        if (String(makh).trim()) {
-          return String(makh).trim();
-        }
-      }
-
-      if (chatwootContextRaw) {
-        const rawMakh =
-          extractFirstMatch(chatwootContextRaw, /["']makh["']\s*:\s*["']([^"']+)["']/i) ||
-          extractFirstMatch(chatwootContextRaw, /["']ma_kh["']\s*:\s*["']([^"']+)["']/i);
-
-        if (rawMakh) {
-          return String(rawMakh).trim();
-        }
-      }
-
-      return "";
-    }
-
-    function handleChatwootMessage(event) {
-      chatwootContextRaw = getRawText(event.data);
-      window.__CHATWOOT_APP_CONTEXT_RAW__ = chatwootContextRaw;
-
-      const context = extractChatwootContextFromMessage(event.data);
-
-      if (!context) {
-        resolveWaitingChatwootContext();
-        return;
-      }
-
-      chatwootContext = context;
-      window.__CHATWOOT_APP_CONTEXT__ = context;
-
-      resolveWaitingChatwootContext();
-    }
-
-    function extractChatwootContextFromMessage(rawData) {
-      const payload = tryParseJson(rawData);
-
-      if (!payload || typeof payload !== "object") {
-        return null;
-      }
-
-      if (payload.event === "appContext") {
-        return payload.data || null;
-      }
-
-      if (payload.data && payload.data.event === "appContext") {
-        return payload.data.data || null;
-      }
-
-      if (payload.conversation && typeof payload.conversation === "object") {
-        return payload;
-      }
-
-      if (payload.data && payload.data.conversation && typeof payload.data.conversation === "object") {
-        return payload.data;
-      }
-
-      return null;
-    }
-
-    function requestChatwootContext() {
-      try {
-        window.parent.postMessage(CHATWOOT_FETCH_INFO_EVENT, "*");
-      } catch (error) {
-        console.warn("Không gửi được yêu cầu lấy Chatwoot context:", error);
-      }
-    }
-
-    function waitForChatwootContext(timeoutMs) {
-      if (chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || chatwootContextRaw) {
-        return Promise.resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
-      }
-
-      requestChatwootContext();
-
-      return new Promise(function (resolve) {
-        const timer = setTimeout(function () {
-          resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
-        }, timeoutMs || 800);
-
-        chatwootContextReadyResolvers.push(function (context) {
-          clearTimeout(timer);
-          resolve(context || null);
-        });
-      });
-    }
-
-    function resolveWaitingChatwootContext() {
-      const resolvers = chatwootContextReadyResolvers;
-      chatwootContextReadyResolvers = [];
-
-      resolvers.forEach(function (resolve) {
-        resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
-      });
-    }
-
-    function tryParseJson(value) {
-      if (typeof value !== "string") {
-        return value;
-      }
-
-      let current = value;
-
-      for (let i = 0; i < 4; i++) {
-        if (typeof current !== "string") {
-          return current;
-        }
-
-        const text = current.trim();
-
-        if (!text || (!text.startsWith("{") && !text.startsWith("["))) {
-          return value;
-        }
-
-        try {
-          current = JSON.parse(text);
-        } catch (error) {
-          return value;
-        }
-      }
-
-      return current;
-    }
-
-    function getRawText(value) {
-      if (typeof value === "string") {
-        return value;
-      }
-
-      try {
-        return JSON.stringify(value || {});
-      } catch (error) {
-        return "";
-      }
-    }
-
-    function extractFirstMatch(text, regex) {
-      const match = String(text || "").match(regex);
-      return match && match[1] ? String(match[1]) : null;
-    }
-
-    function formatDateTime(value) {
-      if (!value) {
-        return "";
-      }
-
-      const d = new Date(value);
-
-      if (isNaN(d.getTime())) {
-        return "";
-      }
-
-      return d.toLocaleString("vi-VN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        day: "2-digit",
-        month: "2-digit",
-        year: "2-digit"
-      });
+    function escapePostgrestValue(value) {
+      return String(value || "").replace(/[,()]/g, "");
     }
 
     function formatNumber(value) {
       const number = Number(value || 0);
-
-      return Number.isFinite(number)
-        ? number.toLocaleString("vi-VN")
-        : "";
-    }
-
-    function formatMoney(value) {
-      const number = Number(value || 0);
-
-      return Number.isFinite(number)
-        ? number.toLocaleString("vi-VN")
-        : "";
+      return Number.isFinite(number) ? number.toLocaleString("vi-VN") : "";
     }
 
     function escapeHtml(value) {
@@ -648,13 +696,8 @@
     }
 
     function getErrorMessage(error) {
-      if (!error) {
-        return "Không rõ lỗi";
-      }
-
-      if (error.message) {
-        return error.message;
-      }
+      if (!error) return "Không rõ lỗi";
+      if (error.message) return error.message;
 
       try {
         return JSON.stringify(error);
