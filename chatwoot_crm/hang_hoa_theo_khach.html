@@ -30,18 +30,18 @@
     .app {
       width: 100%;
       height: 100vh;
-      padding: 8px;
+      padding: 4px;
       background: #f3f4f6;
       overflow: hidden;
     }
 
     .content {
       width: 100%;
-      height: calc(100vh - 16px);
+      height: calc(100vh - 8px);
       background: #ffffff;
       border: 1px solid #e5e7eb;
       border-radius: 10px;
-      padding: 10px;
+      padding: 6px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -53,19 +53,46 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      margin-bottom: 8px;
+      margin-bottom: 5px;
     }
 
     .title {
-      font-size: 16px;
-      font-weight: 800;
+      display: none;
+    }
+
+    .customer-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      min-width: 0;
+      font-size: 12px;
       color: #111827;
+      line-height: 1.35;
+    }
+
+    .info-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 520px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .info-pill b {
+      color: #374151;
+      font-weight: 800;
     }
 
     .status {
       margin-top: 2px;
-      font-size: 13px;
+      font-size: 12px;
       color: #374151;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -81,12 +108,12 @@
 
     .reload-btn,
     .logout-btn {
-      height: 32px;
+      height: 30px;
       border: none;
       border-radius: 7px;
       color: #ffffff;
-      padding: 0 12px;
-      font-size: 13px;
+      padding: 0 10px;
+      font-size: 12px;
       font-weight: 700;
       cursor: pointer;
       white-space: nowrap;
@@ -116,14 +143,14 @@
 
     .message {
       flex: 0 0 auto;
-      padding: 12px;
+      padding: 7px 9px;
       border-radius: 8px;
       border: 1px solid #e5e7eb;
       background: #f9fafb;
       color: #374151;
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.45;
-      margin-bottom: 8px;
+      margin-bottom: 5px;
     }
 
     .message.error {
@@ -148,14 +175,14 @@
 
     table {
       width: 100%;
-      min-width: 640px;
+      min-width: 560px;
       border-collapse: collapse;
-      font-size: 13px;
+      font-size: 12px;
       background: #ffffff;
     }
 
     th, td {
-      padding: 9px 10px;
+      padding: 6px 8px;
       border-bottom: 1px solid #e5e7eb;
       text-align: left;
       white-space: nowrap;
@@ -282,11 +309,16 @@
       }
 
       table {
-        min-width: 560px;
+        min-width: 520px;
         font-size: 12px;
       }
 
-      th, td { padding: 7px; }
+      .info-pill {
+        max-width: 100%;
+        padding: 2px 6px;
+      }
+
+      th, td { padding: 5px 6px; }
     }
   </style>
 </head>
@@ -310,7 +342,7 @@
     <main class="content">
       <div class="header">
         <div>
-          <div class="title">Hàng hóa đã mua</div>
+          <div id="customerInfo" class="customer-info">Đang lấy thông tin khách...</div>
           <div id="statusText" class="status">Đang khởi tạo...</div>
         </div>
 
@@ -320,7 +352,7 @@
         </div>
       </div>
 
-      <div id="messageBox" class="message">
+      <div id="messageBox" class="message hidden">
         Đang kiểm tra dữ liệu...
       </div>
 
@@ -366,6 +398,7 @@
 
     const reloadBtn = document.getElementById("reloadBtn");
     const logoutBtn = document.getElementById("logoutBtn");
+    const customerInfo = document.getElementById("customerInfo");
     const statusText = document.getElementById("statusText");
     const messageBox = document.getElementById("messageBox");
     const tableWrap = document.getElementById("tableWrap");
@@ -580,11 +613,13 @@
 
         if (!makh) {
           statusText.textContent = "Thiếu makh";
+          customerInfo.textContent = "Thiếu mã khách hàng";
           hideTable("Không lấy được mã khách hàng từ URL hoặc Chatwoot custom_attributes.", false);
           return;
         }
 
         statusText.textContent = "Mã khách: " + makh;
+        customerInfo.innerHTML = `<span class="info-pill"><b>KH:</b> ${escapeHtml(makh)}</span>`;
         await loadHangHoaTheoKhach(makh);
       } catch (error) {
         statusText.textContent = "Lỗi tải dữ liệu";
@@ -597,7 +632,7 @@
     async function loadHangHoaTheoKhach(makh) {
       const { data, error } = await supabaseClient
         .from(VIEW_HANG_HOA_THEO_KHACH)
-        .select("ma_hang, ten_hang, so_luong")
+        .select("ma_hang, ten_hang, so_luong, ten_kh, dien_thoai, dia_chi")
         .eq("makh", makh)
         .order("so_luong", { ascending: false })
         .limit(MAX_ROWS);
@@ -611,6 +646,7 @@
 
     function renderHangHoa(rows, makh) {
       if (!rows.length) {
+        customerInfo.innerHTML = `<span class="info-pill"><b>KH:</b> ${escapeHtml(makh || "---")}</span>`;
         hideTable("Không tìm thấy hàng hóa đã mua của mã khách: " + makh, false);
         return;
       }
@@ -625,12 +661,28 @@
         `;
       }).join("");
 
-      messageBox.className = "message ok";
-      messageBox.textContent = "Đã lọc theo makh = " + makh;
+      renderCustomerInfo(rows[0], makh);
+
+      messageBox.className = "message ok hidden";
+      messageBox.textContent = "";
 
       tableWrap.classList.remove("hidden");
       footerInfo.classList.remove("hidden");
       footerInfo.textContent = "Tìm thấy " + rows.length + " mặt hàng.";
+    }
+
+
+    function renderCustomerInfo(row, makh) {
+      const tenKh = row && row.ten_kh ? String(row.ten_kh).trim() : "---";
+      const sdt = row && row.dien_thoai ? String(row.dien_thoai).trim() : "---";
+      const diaChi = row && row.dia_chi ? String(row.dia_chi).trim() : "---";
+
+      customerInfo.innerHTML = `
+        <span class="info-pill"><b>KH:</b> ${escapeHtml(makh || "---")}</span>
+        <span class="info-pill"><b>Tên:</b> ${escapeHtml(tenKh)}</span>
+        <span class="info-pill"><b>ĐT:</b> ${escapeHtml(sdt)}</span>
+        <span class="info-pill"><b>ĐC:</b> ${escapeHtml(diaChi)}</span>
+      `;
     }
 
     function clearData() {
@@ -639,6 +691,7 @@
       footerInfo.classList.add("hidden");
       footerInfo.textContent = "";
       statusText.textContent = "Chưa đăng nhập";
+      customerInfo.textContent = "Chưa đăng nhập";
       messageBox.className = "message";
       messageBox.textContent = "Vui lòng đăng nhập để xem hàng hóa đã mua.";
     }
