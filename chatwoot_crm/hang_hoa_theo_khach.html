@@ -3,32 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
   <title>Hàng hóa theo khách</title>
-
   <link rel="stylesheet" href="./css/hang_hoa_theo_khach.css" />
-
   <script src="./js/internal_key.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./js/cod_config.js"></script>
-  <script src="./js/auth_token.js"></script>
 </head>
-
 <body>
-  <div id="loginPopup" class="login-popup hidden">
-    <div class="login-modal">
-      <h2>🔐 Đăng nhập</h2>
-
-      <input id="popupMaNvInput" type="text" placeholder="Mã nhân viên hoặc số điện thoại" autocomplete="username" />
-      <input id="popupMatKhauInput" type="password" placeholder="Mật khẩu" autocomplete="current-password" />
-
-      <button id="popupLoginBtn" type="button">Đăng nhập</button>
-
-      <div class="login-message" id="popupLoginMessage"></div>
-      <div class="login-note" id="popupCfgNote">Đang khởi tạo cấu hình...</div>
-    </div>
-  </div>
-
   <div class="app">
     <main class="content">
       <div class="topbar">
@@ -36,40 +17,27 @@
           <b>Hàng hóa</b>
           <span id="statusText">Đang khởi tạo...</span>
         </div>
-
         <div class="topbar-actions">
           <input id="searchInput" type="search" placeholder="Tìm hàng..." />
           <button id="reloadBtn" type="button" class="reload-btn">↻ Làm mới</button>
-          <button id="logoutBtn" type="button" class="logout-btn">Đăng xuất</button>
         </div>
       </div>
-
       <div id="messageBox" class="message hidden"></div>
-
       <div id="tableWrap" class="table-wrap hidden">
         <table>
           <thead>
             <tr>
-              <th class="sortable" data-sort="ma_hang">
-                Mã hàng <span class="sort-icon"></span>
-              </th>
-              <th class="sortable" data-sort="ten_hang">
-                Tên hàng <span class="sort-icon"></span>
-              </th>
-              <th class="sortable right" data-sort="so_luong">
-                Tổng số lượng <span class="sort-icon"></span>
-              </th>
+              <th class="sortable" data-sort="ma_hang">Mã hàng <span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="ten_hang">Tên hàng <span class="sort-icon"></span></th>
+              <th class="sortable right" data-sort="so_luong">Tổng số lượng <span class="sort-icon"></span></th>
             </tr>
           </thead>
-
           <tbody id="detailBody"></tbody>
         </table>
       </div>
-
       <div id="footerInfo" class="footer hidden"></div>
     </main>
   </div>
-
-  <script src="./js/hang_hoa_theo_khach.js"></script>
+  <script src="./js/hang_hoa_theo_khach_no_login.js"></script>
 </body>
 </html>
