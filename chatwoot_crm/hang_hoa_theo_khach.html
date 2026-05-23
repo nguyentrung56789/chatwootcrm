@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -9,6 +8,7 @@
 
   <script src="./js/internal_key.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./js/cod_config.js"></script>
 
   <style>
     * {
@@ -68,6 +68,7 @@
     }
 
     .status {
+      margin-top: 2px;
       font-size: 13px;
       color: #374151;
       overflow: hidden;
@@ -106,6 +107,7 @@
       color: #374151;
       font-size: 13px;
       line-height: 1.45;
+      margin-bottom: 8px;
     }
 
     .message.error {
@@ -249,6 +251,7 @@
 
     let supabaseClient = null;
     let chatwootContext = null;
+    let chatwootContextRaw = "";
     let chatwootContextReadyResolvers = [];
 
     const reloadBtn = document.getElementById("reloadBtn");
@@ -268,48 +271,70 @@
 
     async function init() {
       try {
-        initSupabaseClient();
+        await initSupabaseClient();
 
         requestChatwootContext();
         setTimeout(requestChatwootContext, 300);
         setTimeout(requestChatwootContext, 900);
         setTimeout(requestChatwootContext, 1600);
+        setTimeout(requestChatwootContext, 2600);
 
         await loadByChatwootMakh();
       } catch (error) {
+        statusText.textContent = "Lỗi khởi tạo";
         hideTable("Lỗi khởi tạo: " + getErrorMessage(error), true);
       }
     }
 
-    function initSupabaseClient() {
-      const url =
-        window.SUPABASE_URL ||
-        window.supabaseUrl ||
-        window.COD_SUPABASE_URL ||
-        window.COD_BASE?.supabaseUrl ||
-        window.COD_BASE?.SUPABASE_URL ||
-        "";
+    async function initSupabaseClient() {
+      let supabaseUrl = "";
+      let supabaseAnon = "";
 
-      const key =
-        window.SUPABASE_ANON_KEY ||
-        window.supabaseAnonKey ||
-        window.COD_SUPABASE_ANON_KEY ||
-        window.COD_BASE?.supabaseAnonKey ||
-        window.COD_BASE?.SUPABASE_ANON_KEY ||
-        "";
+      try {
+        const resp = await fetch("/api/getConfig", {
+          headers: {
+            "x-internal-key": window.getInternalKey ? window.getInternalKey() : ""
+          }
+        });
 
-      if (!url || !key) {
-        throw new Error("Chưa tìm thấy SUPABASE_URL hoặc SUPABASE_ANON_KEY trong internal_key.js");
+        if (resp.ok) {
+          const cfg = await resp.json();
+          supabaseUrl = cfg.url || "";
+          supabaseAnon = cfg.anon || cfg.key || "";
+        }
+      } catch (error) {
+        console.warn("Không gọi được /api/getConfig trực tiếp:", error);
       }
 
-      supabaseClient = window.supabase.createClient(url, key);
+      if ((!supabaseUrl || !supabaseAnon) && window.configReady) {
+        await window.configReady;
+
+        if (typeof window.getConfig === "function") {
+          const urlValue = window.getConfig("url");
+          const anonValue = window.getConfig("anon");
+
+          if (typeof urlValue === "string") {
+            supabaseUrl = supabaseUrl || urlValue;
+          }
+
+          if (typeof anonValue === "string") {
+            supabaseAnon = supabaseAnon || anonValue;
+          }
+        }
+      }
+
+      if (!supabaseUrl || !supabaseAnon) {
+        throw new Error("Chưa lấy được Supabase URL hoặc anon key từ /api/getConfig hoặc config.js");
+      }
+
+      supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnon);
     }
 
     async function loadByChatwootMakh() {
       setLoading(true);
 
       try {
-        await waitForChatwootContext(2500);
+        await waitForChatwootContext(3000);
 
         const makh = getMakhFromChatwootContext();
 
@@ -323,6 +348,7 @@
 
         await loadDetailsByMakh(makh);
       } catch (error) {
+        statusText.textContent = "Lỗi tải dữ liệu";
         hideTable("Lỗi tải dữ liệu: " + getErrorMessage(error), true);
       } finally {
         setLoading(false);
@@ -331,20 +357,21 @@
 
     async function loadDetailsByMakh(makh) {
       /*
-        Bước 1:
-        Lấy danh sách hóa đơn theo makh từ bảng don_hang.
-        Bảng don_hang_chitiet không có makh nên phải lọc qua ma_hd.
+        don_hang_chitiet không có makh.
+        Vì vậy phải:
+        1) Lọc don_hang theo ma_kh = makh để lấy ma_hd.
+        2) Lấy don_hang_chitiet theo danh sách ma_hd đó.
       */
-      const { data: orders, error: orderError } = await supabaseClient
-        .from(TABLE_DON_HANG)
-        .select("ma_hd, ngay")
-        .eq("ma_kh", makh)
-        .not("ma_hd", "is", null)
-        .order("ngay", { ascending: false });
 
-      if (orderError) {
-        throw orderError;
-      }
+      const orders = await fetchAllRows(function (from, to) {
+        return supabaseClient
+          .from(TABLE_DON_HANG)
+          .select("ma_hd, ngay")
+          .eq("ma_kh", makh)
+          .not("ma_hd", "is", null)
+          .order("ngay", { ascending: false })
+          .range(from, to);
+      });
 
       const orderRows = orders || [];
 
@@ -362,43 +389,74 @@
       }
 
       const ngayMap = {};
+
       orderRows.forEach(function (item) {
         const maHd = String(item.ma_hd || "").trim();
+
         if (maHd && !ngayMap[maHd]) {
           ngayMap[maHd] = item.ngay || null;
         }
       });
 
-      /*
-        Bước 2:
-        Chỉ lấy dữ liệu hiển thị từ don_hang_chitiet.
-      */
-      const { data: details, error: detailError } = await supabaseClient
-        .from(TABLE_CHI_TIET)
-        .select("ma_hd, ma_h, ten_h, so_luong, don_gia, thanh_tien")
-        .in("ma_hd", maHdList)
-        .order("ma_hd", { ascending: false });
+      const allDetails = [];
+      const chunks = chunkArray(maHdList, 150);
 
-      if (detailError) {
-        throw detailError;
+      for (const chunk of chunks) {
+        const details = await fetchAllRows(function (from, to) {
+          return supabaseClient
+            .from(TABLE_CHI_TIET)
+            .select("ma_hd, ma_h, ten_h, so_luong, don_gia, thanh_tien")
+            .in("ma_hd", chunk)
+            .order("ma_hd", { ascending: false })
+            .range(from, to);
+        });
+
+        allDetails.push(...details);
       }
 
-      const detailRows = details || [];
-
-      detailRows.forEach(function (item) {
-        item.ngay = ngayMap[String(item.ma_hd || "").trim()] || null;
+      allDetails.forEach(function (item) {
+        const maHd = String(item.ma_hd || "").trim();
+        item.ngay = ngayMap[maHd] || null;
       });
 
-      detailRows.sort(function (a, b) {
+      allDetails.sort(function (a, b) {
         const ta = a.ngay ? new Date(a.ngay).getTime() : 0;
         const tb = b.ngay ? new Date(b.ngay).getTime() : 0;
 
-        if (tb !== ta) return tb - ta;
+        if (tb !== ta) {
+          return tb - ta;
+        }
 
         return String(b.ma_hd || "").localeCompare(String(a.ma_hd || ""));
       });
 
-      renderDetails(detailRows, makh, maHdList.length);
+      renderDetails(allDetails, makh, maHdList.length);
+    }
+
+    async function fetchAllRows(queryBuilderFn) {
+      const pageSize = 1000;
+      let from = 0;
+      let allRows = [];
+
+      while (true) {
+        const to = from + pageSize - 1;
+        const { data, error } = await queryBuilderFn(from, to);
+
+        if (error) {
+          throw error;
+        }
+
+        const rows = data || [];
+        allRows = allRows.concat(rows);
+
+        if (rows.length < pageSize) {
+          break;
+        }
+
+        from += pageSize;
+      }
+
+      return allRows;
     }
 
     function renderDetails(rows, makh, orderCount) {
@@ -464,7 +522,9 @@
       ];
 
       for (const attrs of candidates) {
-        if (!attrs || typeof attrs !== "object") continue;
+        if (!attrs || typeof attrs !== "object") {
+          continue;
+        }
 
         const makh =
           attrs.makh ||
@@ -478,25 +538,34 @@
         }
       }
 
+      if (chatwootContextRaw) {
+        const rawMakh =
+          extractFirstMatch(chatwootContextRaw, /["']makh["']\s*:\s*["']([^"']+)["']/i) ||
+          extractFirstMatch(chatwootContextRaw, /["']ma_kh["']\s*:\s*["']([^"']+)["']/i);
+
+        if (rawMakh) {
+          return String(rawMakh).trim();
+        }
+      }
+
       return "";
     }
 
     function handleChatwootMessage(event) {
+      chatwootContextRaw = getRawText(event.data);
+      window.__CHATWOOT_APP_CONTEXT_RAW__ = chatwootContextRaw;
+
       const context = extractChatwootContextFromMessage(event.data);
 
       if (!context) {
+        resolveWaitingChatwootContext();
         return;
       }
 
       chatwootContext = context;
       window.__CHATWOOT_APP_CONTEXT__ = context;
 
-      const resolvers = chatwootContextReadyResolvers;
-      chatwootContextReadyResolvers = [];
-
-      resolvers.forEach(function (resolve) {
-        resolve(context);
-      });
+      resolveWaitingChatwootContext();
     }
 
     function extractChatwootContextFromMessage(rawData) {
@@ -534,8 +603,8 @@
     }
 
     function waitForChatwootContext(timeoutMs) {
-      if (chatwootContext || window.__CHATWOOT_APP_CONTEXT__) {
-        return Promise.resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__);
+      if (chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || chatwootContextRaw) {
+        return Promise.resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
       }
 
       requestChatwootContext();
@@ -547,8 +616,17 @@
 
         chatwootContextReadyResolvers.push(function (context) {
           clearTimeout(timer);
-          resolve(context);
+          resolve(context || null);
         });
+      });
+    }
+
+    function resolveWaitingChatwootContext() {
+      const resolvers = chatwootContextReadyResolvers;
+      chatwootContextReadyResolvers = [];
+
+      resolvers.forEach(function (resolve) {
+        resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
       });
     }
 
@@ -559,7 +637,7 @@
 
       let current = value;
 
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 4; i++) {
         if (typeof current !== "string") {
           return current;
         }
@@ -580,8 +658,37 @@
       return current;
     }
 
+    function getRawText(value) {
+      if (typeof value === "string") {
+        return value;
+      }
+
+      try {
+        return JSON.stringify(value || {});
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function extractFirstMatch(text, regex) {
+      const match = String(text || "").match(regex);
+      return match && match[1] ? String(match[1]) : null;
+    }
+
+    function chunkArray(array, size) {
+      const result = [];
+
+      for (let i = 0; i < array.length; i += size) {
+        result.push(array.slice(i, i + size));
+      }
+
+      return result;
+    }
+
     function formatDateTime(value) {
-      if (!value) return "";
+      if (!value) {
+        return "";
+      }
 
       const d = new Date(value);
 
@@ -624,8 +731,13 @@
     }
 
     function getErrorMessage(error) {
-      if (!error) return "Không rõ lỗi";
-      if (error.message) return error.message;
+      if (!error) {
+        return "Không rõ lỗi";
+      }
+
+      if (error.message) {
+        return error.message;
+      }
 
       try {
         return JSON.stringify(error);
