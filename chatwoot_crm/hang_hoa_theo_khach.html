@@ -89,6 +89,42 @@
       flex-shrink: 0;
     }
 
+
+
+    .search-input {
+      width: min(260px, 28vw);
+      height: 28px;
+      border: 1px solid #d1d5db;
+      border-radius: 7px;
+      padding: 0 9px;
+      font-size: 12px;
+      color: #111827;
+      outline: none;
+      background: #ffffff;
+    }
+
+    .search-input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    th.sortable:hover {
+      background: #eef2ff;
+    }
+
+    .sort-icon {
+      display: inline-block;
+      min-width: 12px;
+      margin-left: 4px;
+      color: #2563eb;
+      font-size: 11px;
+    }
+
     .reload-btn,
     .logout-btn {
       height: 28px;
@@ -292,6 +328,12 @@
         font-size: 11px;
       }
 
+      .search-input {
+        width: 150px;
+        height: 30px;
+        font-size: 12px;
+      }
+
       .reload-btn,
       .logout-btn {
         height: 30px;
@@ -333,6 +375,7 @@
         </div>
 
         <div class="header-actions">
+          <input id="searchInput" type="text" class="search-input" placeholder="Tìm hàng..." />
           <button id="reloadBtn" type="button" class="reload-btn">↻ Làm mới</button>
           <button id="logoutBtn" type="button" class="logout-btn">Đăng xuất</button>
         </div>
@@ -346,9 +389,9 @@
         <table>
           <thead>
             <tr>
-              <th>Mã hàng</th>
-              <th>Tên hàng</th>
-              <th class="right">Tổng số lượng</th>
+              <th class="sortable" data-sort="ma_hang">Mã hàng <span class="sort-icon"></span></th>
+              <th class="sortable" data-sort="ten_hang">Tên hàng <span class="sort-icon"></span></th>
+              <th class="sortable right" data-sort="so_luong">Tổng số lượng <span class="sort-icon"></span></th>
             </tr>
           </thead>
           <tbody id="detailBody"></tbody>
@@ -374,6 +417,11 @@
     let chatwootContext = null;
     let chatwootContextRaw = "";
     let chatwootContextReadyResolvers = [];
+    let allHangHoaRows = [];
+    let currentMakh = "";
+    let searchKeyword = "";
+    let sortField = "so_luong";
+    let sortDirection = "desc";
 
     const loginPopup = document.getElementById("loginPopup");
     const popupMaNvInput = document.getElementById("popupMaNvInput");
@@ -382,6 +430,7 @@
     const popupLoginMessage = document.getElementById("popupLoginMessage");
     const popupCfgNote = document.getElementById("popupCfgNote");
 
+    const searchInput = document.getElementById("searchInput");
     const reloadBtn = document.getElementById("reloadBtn");
     const logoutBtn = document.getElementById("logoutBtn");
     const statusText = document.getElementById("statusText");
@@ -394,6 +443,27 @@
 
     reloadBtn.addEventListener("click", function () {
       loadByMakh();
+    });
+
+    searchInput.addEventListener("input", function () {
+      searchKeyword = searchInput.value.trim().toLowerCase();
+      renderCurrentRows();
+    });
+
+    document.querySelectorAll("th.sortable").forEach(function (th) {
+      th.addEventListener("click", function () {
+        const field = th.dataset.sort;
+        if (!field) return;
+
+        if (sortField === field) {
+          sortDirection = sortDirection === "asc" ? "desc" : "asc";
+        } else {
+          sortField = field;
+          sortDirection = field === "so_luong" ? "desc" : "asc";
+        }
+
+        renderCurrentRows();
+      });
     });
 
     logoutBtn.addEventListener("click", function () {
@@ -624,12 +694,75 @@
         throw error;
       }
 
-      renderHangHoa(data || [], makh);
+      allHangHoaRows = data || [];
+      currentMakh = makh;
+      renderCurrentRows();
     }
 
-    function renderHangHoa(rows, makh) {
-      if (!rows.length) {
+    function renderCurrentRows() {
+      const rows = getFilteredAndSortedRows();
+      renderHangHoa(rows, currentMakh, allHangHoaRows.length);
+    }
+
+    function getFilteredAndSortedRows() {
+      const keyword = String(searchKeyword || "").trim().toLowerCase();
+
+      let rows = allHangHoaRows.slice();
+
+      if (keyword) {
+        rows = rows.filter(function (item) {
+          return String(item.ma_hang || "").toLowerCase().includes(keyword) ||
+            String(item.ten_hang || "").toLowerCase().includes(keyword);
+        });
+      }
+
+      rows.sort(function (a, b) {
+        let va = a[sortField];
+        let vb = b[sortField];
+
+        if (sortField === "so_luong") {
+          va = Number(va || 0);
+          vb = Number(vb || 0);
+        } else {
+          va = String(va || "").toLowerCase();
+          vb = String(vb || "").toLowerCase();
+        }
+
+        if (va < vb) return sortDirection === "asc" ? -1 : 1;
+        if (va > vb) return sortDirection === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      updateSortIcons();
+      return rows;
+    }
+
+    function updateSortIcons() {
+      document.querySelectorAll("th.sortable").forEach(function (th) {
+        const icon = th.querySelector(".sort-icon");
+        if (!icon) return;
+        icon.textContent = th.dataset.sort === sortField
+          ? (sortDirection === "asc" ? "▲" : "▼")
+          : "";
+      });
+    }
+
+    function renderHangHoa(rows, makh, totalBeforeFilter) {
+      if (!allHangHoaRows.length) {
         hideTable("Không tìm thấy hàng hóa đã mua của mã khách: " + makh, false);
+        return;
+      }
+
+      if (!rows.length) {
+        detailBody.innerHTML = `
+          <tr>
+            <td colspan="3">Không có mặt hàng khớp với từ khóa tìm kiếm.</td>
+          </tr>
+        `;
+        tableWrap.classList.remove("hidden");
+        footerInfo.classList.remove("hidden");
+        footerInfo.textContent = "0 / " + totalBeforeFilter + " mặt hàng";
+        statusText.textContent = "KH: " + makh + " · 0 / " + totalBeforeFilter + " mặt hàng";
         return;
       }
 
@@ -646,14 +779,22 @@
       messageBox.className = "message ok hidden";
       messageBox.textContent = "";
 
-      statusText.textContent = "KH: " + makh + " · " + rows.length + " mặt hàng";
+      const totalText = searchKeyword
+        ? rows.length + " / " + totalBeforeFilter + " mặt hàng"
+        : rows.length + " mặt hàng";
+
+      statusText.textContent = "KH: " + makh + " · " + totalText;
 
       tableWrap.classList.remove("hidden");
       footerInfo.classList.remove("hidden");
-      footerInfo.textContent = rows.length + " mặt hàng";
+      footerInfo.textContent = totalText;
     }
 
     function clearData() {
+      allHangHoaRows = [];
+      currentMakh = "";
+      searchKeyword = "";
+      if (searchInput) searchInput.value = "";
       detailBody.innerHTML = "";
       tableWrap.classList.add("hidden");
       footerInfo.classList.add("hidden");
