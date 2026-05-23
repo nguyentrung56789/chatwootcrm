@@ -1195,6 +1195,7 @@
             <col data-col="sdt" style="width: 150px;">
             <col data-col="cong_no" style="width: 130px;">
             <col data-col="ma_nv" style="width: 160px;">
+            <col data-col="ngay_chat_cuoi" style="width: 160px;">
             <col data-col="action" style="width: 190px;">
           </colgroup>
 
@@ -1224,8 +1225,13 @@
                 Nhân viên <span class="sort-icon"></span>
                 <span class="col-resizer"></span>
               </th>
-
-              <th class="resizable" data-col-index="5">
+              
+              <th class="sortable resizable" data-sort="ngay_chat_cuoi" data-col-index="5">
+                Ngày <span class="sort-icon"></span>
+                <span class="col-resizer"></span>
+              </th>
+              
+              <th class="resizable" data-col-index="6">
                 Thao tác
                 <span class="col-resizer"></span>
               </th>
@@ -1234,7 +1240,7 @@
 
           <tbody id="customerBody">
             <tr>
-              <td colspan="6">Vui lòng đăng nhập để xem dữ liệu.</td>
+              <td colspan="7">Vui lòng đăng nhập để xem dữ liệu.</td>
             </tr>
           </tbody>
         </table>
@@ -2999,6 +3005,7 @@ if (conflictRows.length > 0) {
       if (sortField === "cong_no") return "congno";
       if (sortField === "sdt") return "dien_thoai";
       if (sortField === "ma_nv") return "ma_nv";
+      if (sortField === "ngay_chat_cuoi") return "ngay_chat_cuoi";
       if (sortField === "ten_kh") return "ten_kh";
       if (sortField === "ma_kh") return "ma_kh";
 
@@ -3026,7 +3033,7 @@ if (conflictRows.length > 0) {
         if (!customers || customers.length === 0) {
           customerBody.innerHTML = `
             <tr>
-              <td colspan="6">Đang tải danh sách khách hàng...</td>
+              <td colspan="7">Đang tải danh sách khách hàng...</td>
             </tr>
           `;
         }
@@ -3080,7 +3087,7 @@ if (conflictRows.length > 0) {
       if (!supabaseClient) {
         customerBody.innerHTML = `
           <tr>
-            <td colspan="6">Supabase chưa sẵn sàng.</td>
+            <td colspan="7">Supabase chưa sẵn sàng.</td>
           </tr>
         `;
         return;
@@ -3099,7 +3106,7 @@ if (conflictRows.length > 0) {
 
       let query = supabaseClient
         .from(TABLE_KHACH_HANG)
-        .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, conversation_id, chatwoot_contact_id", { count: "exact" })
+        .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, ngay_chat_cuoi, conversation_id, chatwoot_contact_id", { count: "exact" })
         .order(dbSortField, { ascending: ascending, nullsFirst: false })
         .range(from, to);
 
@@ -3120,7 +3127,7 @@ if (conflictRows.length > 0) {
 
         customerBody.innerHTML = `
           <tr>
-            <td colspan="6">
+            <td colspan="7">
               Lỗi tải dữ liệu: ${escapeHtml(error.message || JSON.stringify(error))}
             </td>
           </tr>
@@ -3139,6 +3146,7 @@ if (conflictRows.length > 0) {
           sdt: item.dien_thoai || "",
           cong_no: item.congno || 0,
           ma_nv: normalizeNullableMaNv(item.ma_nv),
+          ngay_chat_cuoi: item.ngay_chat_cuoi || null,
           conversation_id: item.conversation_id || null,
           chatwoot_contact_id: item.chatwoot_contact_id || null
         };
@@ -3167,7 +3175,7 @@ if (conflictRows.length > 0) {
 
       let query = supabaseClient
         .from(TABLE_KHACH_HANG)
-        .select("ma_kh, ten_kh, dien_thoai, congno, conversation_id, chatwoot_contact_id", { count: "exact" })
+        .select("ma_kh, ten_kh, dien_thoai, congno, ngay_chat_cuoi, conversation_id, chatwoot_contact_id", { count: "exact" })
         .order(dbSortField, { ascending: ascending, nullsFirst: false })
         .range(from, to);
 
@@ -3183,7 +3191,7 @@ if (conflictRows.length > 0) {
       if (error) {
         customerBody.innerHTML = `
           <tr>
-            <td colspan="6">
+            <td colspan="7">
               Lỗi tải dữ liệu: ${escapeHtml(error.message || JSON.stringify(error))}
             </td>
           </tr>
@@ -3202,6 +3210,7 @@ if (conflictRows.length > 0) {
           sdt: item.dien_thoai || "",
           cong_no: item.congno || 0,
           ma_nv: "",
+          ngay_chat_cuoi: item.ngay_chat_cuoi || null,
           conversation_id: item.conversation_id || null,
           chatwoot_contact_id: item.chatwoot_contact_id || null
         };
@@ -3301,7 +3310,7 @@ if (conflictRows.length > 0) {
 
         customerBody.innerHTML = `
           <tr>
-            <td colspan="6">Vui lòng đăng nhập để xem dữ liệu.</td>
+            <td colspan="7">Vui lòng đăng nhập để xem dữ liệu.</td>
           </tr>
         `;
 
@@ -3354,7 +3363,7 @@ if (conflictRows.length > 0) {
 
       customerBody.innerHTML = `
         <tr>
-          <td colspan="6">Vui lòng đăng nhập để xem dữ liệu.</td>
+          <td colspan="7">Vui lòng đăng nhập để xem dữ liệu.</td>
         </tr>
       `;
 
@@ -3666,7 +3675,7 @@ if (conflictRows.length > 0) {
       if (filtered.length === 0) {
         customerBody.innerHTML = `
           <tr>
-            <td colspan="6">Không có dữ liệu.</td>
+            <td colspan="7">Không có dữ liệu.</td>
           </tr>
         `;
         return;
@@ -3685,6 +3694,9 @@ if (conflictRows.length > 0) {
             <td title="${formatMoney(item.cong_no)}">${formatMoney(item.cong_no)}</td>
             <td title="${escapeHtml(staffTitle)}">
               ${renderStaffChips(item.ma_kh || "")}
+            </td>
+            <td title="${escapeHtml(formatDateTime(item.ngay_chat_cuoi))}">
+              ${escapeHtml(formatDateTime(item.ngay_chat_cuoi))}
             </td>
             <td>
               <div class="row-actions">
@@ -3728,6 +3740,21 @@ if (conflictRows.length > 0) {
     function formatMoney(value) {
       const number = Number(value || 0);
       return number.toLocaleString("vi-VN");
+    }
+
+    function formatDateTime(value) {
+      if (!value) return "";
+
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return "";
+
+      return date.toLocaleString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
     }
 
     function viewCustomer(maKh) {
