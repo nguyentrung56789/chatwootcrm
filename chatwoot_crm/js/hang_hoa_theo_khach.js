@@ -1,30 +1,39 @@
 "use strict";
 
-const VIEW_NAME = "sql_hanghoa_theokhach";
+const VIEW_HANG_HOA_THEO_KHACH = "sql_hanghoa_theokhach";
 const MAX_ROWS = 500;
+const CHATWOOT_FETCH_INFO_EVENT = "chatwoot-dashboard-app:fetch-info";
 
 let supabaseClient = null;
+let chatwootContext = null;
+let chatwootContextRaw = "";
+let chatwootContextReadyResolvers = [];
 let allRows = [];
+let filteredRows = [];
 let currentMakh = "";
 let sortField = "so_luong";
 let sortDirection = "desc";
 
-const searchInput = document.getElementById("searchInput");
 const reloadBtn = document.getElementById("reloadBtn");
-const customerInfo = document.getElementById("customerInfo");
+const searchInput = document.getElementById("searchInput");
+const statusText = document.getElementById("statusText");
 const messageBox = document.getElementById("messageBox");
 const tableWrap = document.getElementById("tableWrap");
 const detailBody = document.getElementById("detailBody");
 const footerInfo = document.getElementById("footerInfo");
-const dataTable = document.getElementById("dataTable");
 
-reloadBtn.addEventListener("click", loadData);
-searchInput.addEventListener("input", render);
+window.addEventListener("message", handleChatwootMessage);
+
+reloadBtn.addEventListener("click", function () {
+  loadByMakh();
+});
+
+searchInput.addEventListener("input", function () {
+  applySearchSortRender();
+});
 
 document.querySelectorAll("th.sortable").forEach(function (th) {
-  th.addEventListener("click", function (event) {
-    if (event.target && event.target.classList.contains("resizer")) return;
-
+  th.addEventListener("click", function () {
     const field = th.getAttribute("data-sort");
     if (!field) return;
 
@@ -35,202 +44,211 @@ document.querySelectorAll("th.sortable").forEach(function (th) {
       sortDirection = field === "so_luong" ? "desc" : "asc";
     }
 
-    render();
+    applySearchSortRender();
   });
 });
 
-initResizableColumns();
 init();
 
 async function init() {
   await initSupabase();
 
+  requestChatwootContext();
+  setTimeout(requestChatwootContext, 300);
+  setTimeout(requestChatwootContext, 900);
+  setTimeout(requestChatwootContext, 1600);
+
   if (!supabaseClient) {
-    showMessage("Chưa lấy được Supabase config.", true);
+    statusText.textContent = "Lỗi cấu hình";
+    showMessage("Chưa lấy được Supabase URL hoặc anon key.", true);
     return;
   }
 
-  await loadData();
+  await loadByMakh();
 }
 
 async function initSupabase() {
-  let supabaseUrl = "";
-  let supabaseAnon = "";
-
   try {
-    const resp = await fetch("/api/getConfig", {
-      headers: {
-        "x-internal-key": window.getInternalKey ? window.getInternalKey() : ""
+    let supabaseUrl = "";
+    let supabaseAnon = "";
+
+    try {
+      const resp = await fetch("/api/getConfig", {
+        headers: {
+          "x-internal-key": window.getInternalKey ? window.getInternalKey() : ""
+        }
+      });
+
+      if (resp.ok) {
+        const cfg = await resp.json();
+        supabaseUrl = cfg.url || "";
+        supabaseAnon = cfg.anon || cfg.key || "";
       }
-    });
-
-    if (resp.ok) {
-      const cfg = await resp.json();
-      supabaseUrl = cfg.url || "";
-      supabaseAnon = cfg.anon || cfg.key || "";
+    } catch (error) {
+      console.warn("Không gọi được /api/getConfig trực tiếp:", error);
     }
-  } catch (error) {
-    console.warn("Không gọi được /api/getConfig:", error);
-  }
 
-  if ((!supabaseUrl || !supabaseAnon) && window.configReady) {
-    await window.configReady;
+    if ((!supabaseUrl || !supabaseAnon) && window.configReady) {
+      await window.configReady;
 
-    if (typeof window.getConfig === "function") {
-      supabaseUrl = supabaseUrl || window.getConfig("url") || "";
-      supabaseAnon = supabaseAnon || window.getConfig("anon") || "";
+      if (typeof window.getConfig === "function") {
+        const urlValue = window.getConfig("url");
+        const anonValue = window.getConfig("anon");
+
+        if (typeof urlValue === "string") supabaseUrl = supabaseUrl || urlValue;
+        if (typeof anonValue === "string") supabaseAnon = supabaseAnon || anonValue;
+      }
     }
-  }
 
-  if (supabaseUrl && supabaseAnon) {
-    supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnon);
-  }
-}
-
-async function loadData() {
-  setLoading(true);
-
-  try {
-    currentMakh = sessionStorage.getItem("FORM_CHA_MA_KH") || "";
-
-    if (!currentMakh) {
-      hideTable("Chưa chọn khách hàng từ form cha.", false);
+    if (!supabaseUrl || !supabaseAnon) {
       return;
     }
 
-    renderCustomerInfo();
-
-    const { data, error } = await supabaseClient
-      .from(VIEW_NAME)
-      .select("ma_hang, ten_hang, so_luong")
-      .eq("makh", currentMakh)
-      .order("so_luong", { ascending: false })
-      .limit(MAX_ROWS);
-
-    if (error) throw error;
-
-    allRows = data || [];
-    render();
+    supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnon);
   } catch (error) {
+    console.error("Lỗi initSupabase:", error);
+  }
+}
+
+async function loadByMakh() {
+  setLoading(true);
+
+  try {
+    let makh =
+      getQueryParam("makh") ||
+      getQueryParam("ma_kh") ||
+      getQueryParam("ma_khach_hang");
+
+    if (!makh) {
+      await waitForChatwootContext(1800);
+      makh = getMakhFromChatwootContext();
+    }
+
+    if (!makh) {
+      currentMakh = "";
+      statusText.textContent = "Thiếu makh";
+      hideTable("Không lấy được mã khách hàng từ URL hoặc Chatwoot custom_attributes.", false);
+      return;
+    }
+
+    currentMakh = makh;
+    statusText.textContent = "KH: " + makh;
+    await loadHangHoaTheoKhach(makh);
+  } catch (error) {
+    statusText.textContent = "Lỗi tải dữ liệu";
     hideTable("Lỗi tải dữ liệu: " + getErrorMessage(error), true);
   } finally {
     setLoading(false);
   }
 }
 
-function renderCustomerInfo() {
-  const tenKh = sessionStorage.getItem("FORM_CHA_TEN_KH") || "";
-  const dienThoai = sessionStorage.getItem("FORM_CHA_DIEN_THOAI") || "";
-  const diaChi = sessionStorage.getItem("FORM_CHA_DIA_CHI") || "";
+async function loadHangHoaTheoKhach(makh) {
+  const { data, error } = await supabaseClient
+    .from(VIEW_HANG_HOA_THEO_KHACH)
+    .select("ma_hang, ten_hang, so_luong")
+    .eq("makh", makh)
+    .order("so_luong", { ascending: false })
+    .limit(MAX_ROWS);
 
-  const parts = [
-    "<b>" + escapeHtml(currentMakh) + "</b>",
-    tenKh ? escapeHtml(tenKh) : "",
-    dienThoai ? escapeHtml(dienThoai) : "",
-    diaChi ? escapeHtml(diaChi) : ""
-  ].filter(Boolean);
+  if (error) throw error;
 
-  customerInfo.innerHTML = parts.join(" · ");
-  customerInfo.classList.remove("hidden");
+  allRows = data || [];
+  applySearchSortRender();
 }
 
-function render() {
-  updateSortIcons();
-
-  if (!allRows.length) {
-    hideTable("Khách này chưa có hàng hóa.", false);
-    return;
-  }
-
+function applySearchSortRender() {
   const keyword = normalizeText(searchInput.value);
 
-  let rows = allRows.filter(function (item) {
+  filteredRows = allRows.filter(function (item) {
     if (!keyword) return true;
-
-    const text = normalizeText(
-      String(item.ma_hang || "") + " " + String(item.ten_hang || "")
-    );
-
+    const text = normalizeText(String(item.ma_hang || "") + " " + String(item.ten_hang || ""));
     return text.includes(keyword);
   });
 
-  rows.sort(compareRows);
-
-  if (!rows.length) {
-    detailBody.innerHTML = `
-      <tr>
-        <td colspan="3">Không có hàng nào khớp từ khóa.</td>
-      </tr>
-    `;
-  } else {
-    detailBody.innerHTML = rows.map(function (item) {
-      const maHang = escapeHtml(item.ma_hang);
-      const tenHang = escapeHtml(item.ten_hang);
-      const soLuong = escapeHtml(formatNumber(item.so_luong));
-
-      return `
-        <tr>
-          <td title="${maHang}">${maHang}</td>
-          <td title="${tenHang}">${tenHang}</td>
-          <td class="right" title="${soLuong}">${soLuong}</td>
-        </tr>
-      `;
-    }).join("");
-  }
-
-  tableWrap.classList.remove("hidden");
-  footerInfo.classList.remove("hidden");
-  footerInfo.textContent = rows.length + " / " + allRows.length + " mặt hàng.";
-
-  hideMessage();
+  filteredRows.sort(compareRows);
+  renderHangHoa(filteredRows, currentMakh);
 }
 
 function compareRows(a, b) {
-  let valueA = a[sortField];
-  let valueB = b[sortField];
+  let va = a[sortField];
+  let vb = b[sortField];
 
   if (sortField === "so_luong") {
-    valueA = Number(valueA || 0);
-    valueB = Number(valueB || 0);
+    va = Number(va || 0);
+    vb = Number(vb || 0);
   } else {
-    valueA = normalizeText(valueA);
-    valueB = normalizeText(valueB);
+    va = normalizeText(va);
+    vb = normalizeText(vb);
   }
 
-  if (valueA < valueB) return sortDirection === "asc" ? -1 : 1;
-  if (valueA > valueB) return sortDirection === "asc" ? 1 : -1;
-
+  if (va < vb) return sortDirection === "asc" ? -1 : 1;
+  if (va > vb) return sortDirection === "asc" ? 1 : -1;
   return 0;
+}
+
+function renderHangHoa(rows, makh) {
+  updateSortIcons();
+
+  if (!allRows.length) {
+    hideTable("Không tìm thấy hàng hóa đã mua của mã khách: " + makh, false);
+    return;
+  }
+
+  if (!rows.length) {
+    detailBody.innerHTML = `<tr><td colspan="3">Không có mặt hàng nào khớp từ khóa tìm kiếm.</td></tr>`;
+    tableWrap.classList.remove("hidden");
+    footerInfo.classList.remove("hidden");
+    footerInfo.textContent = "0 / " + allRows.length + " mặt hàng.";
+    statusText.textContent = "KH: " + makh + " · 0 / " + allRows.length + " mặt hàng";
+    hideMessage();
+    return;
+  }
+
+  detailBody.innerHTML = rows.map(function (item) {
+    return `
+      <tr>
+        <td>${escapeHtml(item.ma_hang)}</td>
+        <td>${escapeHtml(item.ten_hang)}</td>
+        <td class="right">${escapeHtml(formatNumber(item.so_luong))}</td>
+      </tr>
+    `;
+  }).join("");
+
+  tableWrap.classList.remove("hidden");
+  footerInfo.classList.remove("hidden");
+
+  const suffix = searchInput.value.trim()
+    ? rows.length + " / " + allRows.length + " mặt hàng"
+    : rows.length + " mặt hàng";
+
+  footerInfo.textContent = suffix + ".";
+  statusText.textContent = "KH: " + makh + " · " + suffix;
+  hideMessage();
 }
 
 function updateSortIcons() {
   document.querySelectorAll("th.sortable").forEach(function (th) {
     const icon = th.querySelector(".sort-icon");
     const field = th.getAttribute("data-sort");
-
     if (!icon) return;
-
-    icon.textContent = field === sortField
-      ? (sortDirection === "asc" ? "▲" : "▼")
-      : "";
+    icon.textContent = field === sortField ? (sortDirection === "asc" ? "▲" : "▼") : "";
   });
 }
 
 function hideTable(message, isError) {
   allRows = [];
+  filteredRows = [];
   detailBody.innerHTML = "";
-
   tableWrap.classList.add("hidden");
   footerInfo.classList.add("hidden");
   footerInfo.textContent = "";
-
   showMessage(message, isError);
 }
 
 function showMessage(message, isError) {
+  messageBox.classList.remove("hidden");
   messageBox.className = isError ? "message error" : "message";
   messageBox.textContent = message || "";
-  messageBox.classList.remove("hidden");
 }
 
 function hideMessage() {
@@ -240,7 +258,141 @@ function hideMessage() {
 
 function setLoading(isLoading) {
   reloadBtn.disabled = isLoading;
-  reloadBtn.textContent = isLoading ? "..." : "↻";
+  reloadBtn.textContent = isLoading ? "Đang tải..." : "↻ Làm mới";
+}
+
+function getQueryParam(name) {
+  const value = new URLSearchParams(window.location.search).get(name);
+  if (!value || String(value).includes("{{")) return "";
+  return String(value).trim();
+}
+
+function getMakhFromChatwootContext() {
+  const ctx = window.__CHATWOOT_APP_CONTEXT__ || chatwootContext || null;
+  const c = ctx && ctx.conversation ? ctx.conversation : null;
+
+  const candidates = [
+    ctx && ctx.contact && ctx.contact.custom_attributes,
+    ctx && ctx.sender && ctx.sender.custom_attributes,
+    c && c.sender && c.sender.custom_attributes,
+    c && c.contact && c.contact.custom_attributes,
+    c && c.meta && c.meta.sender && c.meta.sender.custom_attributes,
+    c && c.meta && c.meta.contact && c.meta.contact.custom_attributes,
+    ctx && ctx.conversation && ctx.conversation.sender && ctx.conversation.sender.custom_attributes,
+    ctx && ctx.conversation && ctx.conversation.contact && ctx.conversation.contact.custom_attributes
+  ];
+
+  for (const attrs of candidates) {
+    if (!attrs || typeof attrs !== "object") continue;
+
+    const makh =
+      attrs.makh || attrs.ma_kh || attrs.maKH || attrs.ma_khach_hang ||
+      attrs["mã khách hàng"] || attrs["ma khach hang"] || attrs.customer_code || "";
+
+    if (String(makh).trim()) return String(makh).trim();
+  }
+
+  if (chatwootContextRaw) {
+    const rawMakh =
+      extractFirstMatch(chatwootContextRaw, /["']makh["']\s*:\s*["']([^"']+)["']/i) ||
+      extractFirstMatch(chatwootContextRaw, /["']ma_kh["']\s*:\s*["']([^"']+)["']/i) ||
+      extractFirstMatch(chatwootContextRaw, /["']ma_khach_hang["']\s*:\s*["']([^"']+)["']/i) ||
+      extractFirstMatch(chatwootContextRaw, /["']mã khách hàng["']\s*:\s*["']([^"']+)["']/i);
+
+    if (rawMakh) return String(rawMakh).trim();
+  }
+
+  return "";
+}
+
+function handleChatwootMessage(event) {
+  chatwootContextRaw = getRawText(event.data);
+  window.__CHATWOOT_APP_CONTEXT_RAW__ = chatwootContextRaw;
+
+  const context = extractChatwootContextFromMessage(event.data);
+  if (context) {
+    chatwootContext = context;
+    window.__CHATWOOT_APP_CONTEXT__ = context;
+  }
+
+  resolveWaitingChatwootContext();
+}
+
+function extractChatwootContextFromMessage(rawData) {
+  const payload = tryParseJson(rawData);
+  if (!payload || typeof payload !== "object") return null;
+  if (payload.event === "appContext") return payload.data || null;
+  if (payload.data && payload.data.event === "appContext") return payload.data.data || null;
+  if (payload.conversation && typeof payload.conversation === "object") return payload;
+  if (payload.data && payload.data.conversation && typeof payload.data.conversation === "object") return payload.data;
+  return null;
+}
+
+function requestChatwootContext() {
+  try {
+    window.parent.postMessage(CHATWOOT_FETCH_INFO_EVENT, "*");
+  } catch (error) {
+    console.warn("Không gửi được yêu cầu lấy Chatwoot context:", error);
+  }
+}
+
+function waitForChatwootContext(timeoutMs) {
+  if (chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || chatwootContextRaw) {
+    return Promise.resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
+  }
+
+  requestChatwootContext();
+
+  return new Promise(function (resolve) {
+    const timer = setTimeout(function () {
+      resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
+    }, timeoutMs || 1500);
+
+    chatwootContextReadyResolvers.push(function (context) {
+      clearTimeout(timer);
+      resolve(context || null);
+    });
+  });
+}
+
+function resolveWaitingChatwootContext() {
+  const resolvers = chatwootContextReadyResolvers;
+  chatwootContextReadyResolvers = [];
+  resolvers.forEach(function (resolve) {
+    resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
+  });
+}
+
+function tryParseJson(value) {
+  if (typeof value !== "string") return value;
+  let current = value;
+
+  for (let i = 0; i < 4; i++) {
+    if (typeof current !== "string") return current;
+    const text = current.trim();
+    if (!text || (!text.startsWith("{") && !text.startsWith("["))) return value;
+    try {
+      current = JSON.parse(text);
+    } catch (error) {
+      return value;
+    }
+  }
+
+  return current;
+}
+
+function getRawText(value) {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value || {});
+  } catch (error) {
+    return "";
+  }
+}
+
+function extractFirstMatch(text, regex) {
+  const match = String(text || "").match(regex);
+  return match && match[1] ? String(match[1]) : null;
 }
 
 function normalizeText(value) {
@@ -268,69 +420,9 @@ function escapeHtml(value) {
 function getErrorMessage(error) {
   if (!error) return "Không rõ lỗi";
   if (error.message) return error.message;
-
   try {
     return JSON.stringify(error);
   } catch (e) {
     return String(error);
   }
-}
-
-function initResizableColumns() {
-  document.querySelectorAll(".resizer").forEach(function (resizer) {
-    resizer.addEventListener("mousedown", startResize);
-    resizer.addEventListener("touchstart", startResize, { passive: false });
-  });
-}
-
-function startResize(event) {
-  event.preventDefault();
-  event.stopPropagation();
-
-  const colName = event.target.getAttribute("data-col");
-  if (!colName) return;
-
-  const col = dataTable.querySelector('col[data-col="' + colName + '"]');
-  if (!col) return;
-
-  const startX = getClientX(event);
-  const startWidth = col.getBoundingClientRect().width || parseFloat(col.style.width) || 120;
-
-  document.body.classList.add("resizing");
-
-  function onMove(moveEvent) {
-    moveEvent.preventDefault();
-
-    const currentX = getClientX(moveEvent);
-    const diff = currentX - startX;
-    const nextWidth = Math.max(70, startWidth + diff);
-
-    col.style.width = nextWidth + "px";
-  }
-
-  function onEnd() {
-    document.body.classList.remove("resizing");
-
-    window.removeEventListener("mousemove", onMove);
-    window.removeEventListener("mouseup", onEnd);
-    window.removeEventListener("touchmove", onMove);
-    window.removeEventListener("touchend", onEnd);
-  }
-
-  window.addEventListener("mousemove", onMove);
-  window.addEventListener("mouseup", onEnd);
-  window.addEventListener("touchmove", onMove, { passive: false });
-  window.addEventListener("touchend", onEnd);
-}
-
-function getClientX(event) {
-  if (event.touches && event.touches.length) {
-    return event.touches[0].clientX;
-  }
-
-  if (event.changedTouches && event.changedTouches.length) {
-    return event.changedTouches[0].clientX;
-  }
-
-  return event.clientX || 0;
 }
