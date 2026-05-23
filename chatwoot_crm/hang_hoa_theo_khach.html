@@ -1,1 +1,638 @@
 
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Chi tiết đơn hàng</title>
+
+  <script src="./js/internal_key.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+      overflow: hidden;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .app {
+      width: 100%;
+      height: 100vh;
+      padding: 8px;
+      background: #f3f4f6;
+      overflow: hidden;
+    }
+
+    .content {
+      width: 100%;
+      height: calc(100vh - 16px);
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .header {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #111827;
+      white-space: nowrap;
+    }
+
+    .status {
+      font-size: 13px;
+      color: #374151;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .reload-btn {
+      height: 32px;
+      border: none;
+      border-radius: 7px;
+      background: #2563eb;
+      color: #ffffff;
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .reload-btn:hover {
+      background: #1d4ed8;
+    }
+
+    .reload-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .message {
+      flex: 0 0 auto;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      background: #f9fafb;
+      color: #374151;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .message.error {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #991b1b;
+    }
+
+    .message.ok {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+      color: #166534;
+    }
+
+    .table-wrap {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+
+    table {
+      width: max-content;
+      min-width: 900px;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #ffffff;
+    }
+
+    th,
+    td {
+      padding: 8px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #f9fafb;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    tr:hover td {
+      background: #f9fafb;
+    }
+
+    .right {
+      text-align: right;
+    }
+
+    .footer {
+      flex: 0 0 auto;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    @media (max-width: 600px) {
+      .app {
+        padding: 5px;
+      }
+
+      .content {
+        height: calc(100vh - 10px);
+        padding: 7px;
+        border-radius: 8px;
+      }
+
+      .title {
+        font-size: 14px;
+      }
+
+      .reload-btn {
+        height: 30px;
+        padding: 0 9px;
+        font-size: 12px;
+      }
+
+      table {
+        min-width: 780px;
+        font-size: 12px;
+      }
+
+      th,
+      td {
+        padding: 6px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <main class="content">
+      <div class="header">
+        <div>
+          <div class="title">Chi tiết đơn hàng</div>
+          <div id="statusText" class="status">Đang lấy mã khách từ Chatwoot...</div>
+        </div>
+
+        <button id="reloadBtn" type="button" class="reload-btn">↻ Làm mới</button>
+      </div>
+
+      <div id="messageBox" class="message">
+        Đang kiểm tra custom_attributes.makh...
+      </div>
+
+      <div id="tableWrap" class="table-wrap hidden">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã HĐ</th>
+              <th>Ngày</th>
+              <th>Mã hàng</th>
+              <th>Tên hàng</th>
+              <th class="right">Số lượng</th>
+              <th class="right">Đơn giá</th>
+              <th class="right">Thành tiền</th>
+            </tr>
+          </thead>
+
+          <tbody id="detailBody"></tbody>
+        </table>
+      </div>
+
+      <div id="footerInfo" class="footer hidden"></div>
+    </main>
+  </div>
+
+  <script>
+    const TABLE_DON_HANG = "don_hang";
+    const TABLE_CHI_TIET = "don_hang_chitiet";
+
+    const CHATWOOT_FETCH_INFO_EVENT = "chatwoot-dashboard-app:fetch-info";
+
+    let supabaseClient = null;
+    let chatwootContext = null;
+    let chatwootContextReadyResolvers = [];
+
+    const reloadBtn = document.getElementById("reloadBtn");
+    const statusText = document.getElementById("statusText");
+    const messageBox = document.getElementById("messageBox");
+    const tableWrap = document.getElementById("tableWrap");
+    const detailBody = document.getElementById("detailBody");
+    const footerInfo = document.getElementById("footerInfo");
+
+    window.addEventListener("message", handleChatwootMessage);
+
+    reloadBtn.addEventListener("click", function () {
+      loadByChatwootMakh();
+    });
+
+    init();
+
+    async function init() {
+      try {
+        initSupabaseClient();
+
+        requestChatwootContext();
+        setTimeout(requestChatwootContext, 300);
+        setTimeout(requestChatwootContext, 900);
+        setTimeout(requestChatwootContext, 1600);
+
+        await loadByChatwootMakh();
+      } catch (error) {
+        hideTable("Lỗi khởi tạo: " + getErrorMessage(error), true);
+      }
+    }
+
+    function initSupabaseClient() {
+      const url =
+        window.SUPABASE_URL ||
+        window.supabaseUrl ||
+        window.COD_SUPABASE_URL ||
+        window.COD_BASE?.supabaseUrl ||
+        window.COD_BASE?.SUPABASE_URL ||
+        "";
+
+      const key =
+        window.SUPABASE_ANON_KEY ||
+        window.supabaseAnonKey ||
+        window.COD_SUPABASE_ANON_KEY ||
+        window.COD_BASE?.supabaseAnonKey ||
+        window.COD_BASE?.SUPABASE_ANON_KEY ||
+        "";
+
+      if (!url || !key) {
+        throw new Error("Chưa tìm thấy SUPABASE_URL hoặc SUPABASE_ANON_KEY trong internal_key.js");
+      }
+
+      supabaseClient = window.supabase.createClient(url, key);
+    }
+
+    async function loadByChatwootMakh() {
+      setLoading(true);
+
+      try {
+        await waitForChatwootContext(2500);
+
+        const makh = getMakhFromChatwootContext();
+
+        if (!makh) {
+          statusText.textContent = "Không có makh";
+          hideTable("Contact Chatwoot chưa có custom_attributes.makh. Bảng đang được ẩn.", false);
+          return;
+        }
+
+        statusText.textContent = "Mã khách: " + makh;
+
+        await loadDetailsByMakh(makh);
+      } catch (error) {
+        hideTable("Lỗi tải dữ liệu: " + getErrorMessage(error), true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function loadDetailsByMakh(makh) {
+      /*
+        Bước 1:
+        Lấy danh sách hóa đơn theo makh từ bảng don_hang.
+        Bảng don_hang_chitiet không có makh nên phải lọc qua ma_hd.
+      */
+      const { data: orders, error: orderError } = await supabaseClient
+        .from(TABLE_DON_HANG)
+        .select("ma_hd, ngay")
+        .eq("ma_kh", makh)
+        .not("ma_hd", "is", null)
+        .order("ngay", { ascending: false });
+
+      if (orderError) {
+        throw orderError;
+      }
+
+      const orderRows = orders || [];
+
+      const maHdList = [...new Set(
+        orderRows
+          .map(function (item) {
+            return String(item.ma_hd || "").trim();
+          })
+          .filter(Boolean)
+      )];
+
+      if (maHdList.length === 0) {
+        hideTable("Không tìm thấy hóa đơn nào của mã khách: " + makh, false);
+        return;
+      }
+
+      const ngayMap = {};
+      orderRows.forEach(function (item) {
+        const maHd = String(item.ma_hd || "").trim();
+        if (maHd && !ngayMap[maHd]) {
+          ngayMap[maHd] = item.ngay || null;
+        }
+      });
+
+      /*
+        Bước 2:
+        Chỉ lấy dữ liệu hiển thị từ don_hang_chitiet.
+      */
+      const { data: details, error: detailError } = await supabaseClient
+        .from(TABLE_CHI_TIET)
+        .select("ma_hd, ma_h, ten_h, so_luong, don_gia, thanh_tien")
+        .in("ma_hd", maHdList)
+        .order("ma_hd", { ascending: false });
+
+      if (detailError) {
+        throw detailError;
+      }
+
+      const detailRows = details || [];
+
+      detailRows.forEach(function (item) {
+        item.ngay = ngayMap[String(item.ma_hd || "").trim()] || null;
+      });
+
+      detailRows.sort(function (a, b) {
+        const ta = a.ngay ? new Date(a.ngay).getTime() : 0;
+        const tb = b.ngay ? new Date(b.ngay).getTime() : 0;
+
+        if (tb !== ta) return tb - ta;
+
+        return String(b.ma_hd || "").localeCompare(String(a.ma_hd || ""));
+      });
+
+      renderDetails(detailRows, makh, maHdList.length);
+    }
+
+    function renderDetails(rows, makh, orderCount) {
+      if (!rows.length) {
+        hideTable("Có hóa đơn của mã khách " + makh + " nhưng chưa có dòng chi tiết.", false);
+        return;
+      }
+
+      detailBody.innerHTML = rows.map(function (item) {
+        return `
+          <tr>
+            <td>${escapeHtml(item.ma_hd)}</td>
+            <td>${escapeHtml(formatDateTime(item.ngay))}</td>
+            <td>${escapeHtml(item.ma_h)}</td>
+            <td>${escapeHtml(item.ten_h)}</td>
+            <td class="right">${escapeHtml(formatNumber(item.so_luong))}</td>
+            <td class="right">${escapeHtml(formatMoney(item.don_gia))}</td>
+            <td class="right">${escapeHtml(formatMoney(item.thanh_tien))}</td>
+          </tr>
+        `;
+      }).join("");
+
+      messageBox.className = "message ok";
+      messageBox.textContent = "Đã lọc theo custom_attributes.makh = " + makh;
+
+      tableWrap.classList.remove("hidden");
+      footerInfo.classList.remove("hidden");
+      footerInfo.textContent =
+        "Tìm thấy " + rows.length + " dòng chi tiết từ " + orderCount + " hóa đơn.";
+    }
+
+    function hideTable(message, isError) {
+      detailBody.innerHTML = "";
+      tableWrap.classList.add("hidden");
+      footerInfo.classList.add("hidden");
+      footerInfo.textContent = "";
+
+      messageBox.className = isError ? "message error" : "message";
+      messageBox.textContent = message || "";
+    }
+
+    function setLoading(isLoading) {
+      reloadBtn.disabled = isLoading;
+      reloadBtn.textContent = isLoading ? "Đang tải..." : "↻ Làm mới";
+    }
+
+    function getMakhFromChatwootContext() {
+      const ctx = window.__CHATWOOT_APP_CONTEXT__ || chatwootContext || null;
+      const c = ctx && ctx.conversation ? ctx.conversation : null;
+
+      const candidates = [
+        ctx && ctx.contact && ctx.contact.custom_attributes,
+        ctx && ctx.sender && ctx.sender.custom_attributes,
+
+        c && c.sender && c.sender.custom_attributes,
+        c && c.contact && c.contact.custom_attributes,
+
+        c && c.meta && c.meta.sender && c.meta.sender.custom_attributes,
+        c && c.meta && c.meta.contact && c.meta.contact.custom_attributes,
+
+        ctx && ctx.conversation && ctx.conversation.sender && ctx.conversation.sender.custom_attributes,
+        ctx && ctx.conversation && ctx.conversation.contact && ctx.conversation.contact.custom_attributes
+      ];
+
+      for (const attrs of candidates) {
+        if (!attrs || typeof attrs !== "object") continue;
+
+        const makh =
+          attrs.makh ||
+          attrs.ma_kh ||
+          attrs.maKH ||
+          attrs.customer_code ||
+          "";
+
+        if (String(makh).trim()) {
+          return String(makh).trim();
+        }
+      }
+
+      return "";
+    }
+
+    function handleChatwootMessage(event) {
+      const context = extractChatwootContextFromMessage(event.data);
+
+      if (!context) {
+        return;
+      }
+
+      chatwootContext = context;
+      window.__CHATWOOT_APP_CONTEXT__ = context;
+
+      const resolvers = chatwootContextReadyResolvers;
+      chatwootContextReadyResolvers = [];
+
+      resolvers.forEach(function (resolve) {
+        resolve(context);
+      });
+    }
+
+    function extractChatwootContextFromMessage(rawData) {
+      const payload = tryParseJson(rawData);
+
+      if (!payload || typeof payload !== "object") {
+        return null;
+      }
+
+      if (payload.event === "appContext") {
+        return payload.data || null;
+      }
+
+      if (payload.data && payload.data.event === "appContext") {
+        return payload.data.data || null;
+      }
+
+      if (payload.conversation && typeof payload.conversation === "object") {
+        return payload;
+      }
+
+      if (payload.data && payload.data.conversation && typeof payload.data.conversation === "object") {
+        return payload.data;
+      }
+
+      return null;
+    }
+
+    function requestChatwootContext() {
+      try {
+        window.parent.postMessage(CHATWOOT_FETCH_INFO_EVENT, "*");
+      } catch (error) {
+        console.warn("Không gửi được yêu cầu lấy Chatwoot context:", error);
+      }
+    }
+
+    function waitForChatwootContext(timeoutMs) {
+      if (chatwootContext || window.__CHATWOOT_APP_CONTEXT__) {
+        return Promise.resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__);
+      }
+
+      requestChatwootContext();
+
+      return new Promise(function (resolve) {
+        const timer = setTimeout(function () {
+          resolve(chatwootContext || window.__CHATWOOT_APP_CONTEXT__ || null);
+        }, timeoutMs || 2000);
+
+        chatwootContextReadyResolvers.push(function (context) {
+          clearTimeout(timer);
+          resolve(context);
+        });
+      });
+    }
+
+    function tryParseJson(value) {
+      if (typeof value !== "string") {
+        return value;
+      }
+
+      let current = value;
+
+      for (let i = 0; i < 3; i++) {
+        if (typeof current !== "string") {
+          return current;
+        }
+
+        const text = current.trim();
+
+        if (!text || (!text.startsWith("{") && !text.startsWith("["))) {
+          return value;
+        }
+
+        try {
+          current = JSON.parse(text);
+        } catch (error) {
+          return value;
+        }
+      }
+
+      return current;
+    }
+
+    function formatDateTime(value) {
+      if (!value) return "";
+
+      const d = new Date(value);
+
+      if (isNaN(d.getTime())) {
+        return "";
+      }
+
+      return d.toLocaleString("vi-VN", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function formatNumber(value) {
+      const number = Number(value || 0);
+
+      return Number.isFinite(number)
+        ? number.toLocaleString("vi-VN")
+        : "";
+    }
+
+    function formatMoney(value) {
+      const number = Number(value || 0);
+
+      return Number.isFinite(number)
+        ? number.toLocaleString("vi-VN")
+        : "";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function getErrorMessage(error) {
+      if (!error) return "Không rõ lỗi";
+      if (error.message) return error.message;
+
+      try {
+        return JSON.stringify(error);
+      } catch (e) {
+        return String(error);
+      }
+    }
+  </script>
+</body>
+</html>
