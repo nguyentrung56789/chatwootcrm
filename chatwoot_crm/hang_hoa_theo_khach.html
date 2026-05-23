@@ -40,7 +40,7 @@
       height: calc(100vh - 8px);
       background: #ffffff;
       border: 1px solid #e5e7eb;
-      border-radius: 10px;
+      border-radius: 9px;
       padding: 6px;
       display: flex;
       flex-direction: column;
@@ -54,61 +54,44 @@
       justify-content: space-between;
       gap: 8px;
       margin-bottom: 5px;
+      min-height: 30px;
+    }
+
+    .customer-summary {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
     }
 
     .title {
-      display: none;
-    }
-
-    .customer-info {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-      min-width: 0;
-      font-size: 12px;
-      color: #111827;
-      line-height: 1.35;
-    }
-
-    .info-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      max-width: 520px;
-      padding: 3px 7px;
-      border-radius: 999px;
-      background: #f3f4f6;
-      border: 1px solid #e5e7eb;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .info-pill b {
-      color: #374151;
+      font-size: 14px;
       font-weight: 800;
+      color: #111827;
+      white-space: nowrap;
+      line-height: 1.1;
     }
 
     .status {
-      margin-top: 2px;
       font-size: 12px;
-      color: #374151;
+      color: #4b5563;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      line-height: 1.1;
     }
 
     .header-actions {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-shrink: 0;
     }
 
     .reload-btn,
     .logout-btn {
-      height: 30px;
+      height: 28px;
       border: none;
       border-radius: 7px;
       color: #ffffff;
@@ -143,14 +126,14 @@
 
     .message {
       flex: 0 0 auto;
-      padding: 7px 9px;
+      padding: 8px 10px;
       border-radius: 8px;
       border: 1px solid #e5e7eb;
       background: #f9fafb;
       color: #374151;
       font-size: 12px;
-      line-height: 1.45;
-      margin-bottom: 5px;
+      line-height: 1.35;
+      margin-bottom: 6px;
     }
 
     .message.error {
@@ -175,14 +158,14 @@
 
     table {
       width: 100%;
-      min-width: 560px;
+      min-width: 640px;
       border-collapse: collapse;
-      font-size: 12px;
+      font-size: 13px;
       background: #ffffff;
     }
 
     th, td {
-      padding: 6px 8px;
+      padding: 7px 9px;
       border-bottom: 1px solid #e5e7eb;
       text-align: left;
       white-space: nowrap;
@@ -206,8 +189,8 @@
 
     .footer {
       flex: 0 0 auto;
-      margin-top: 8px;
-      font-size: 12px;
+      margin-top: 5px;
+      font-size: 11px;
       color: #6b7280;
     }
 
@@ -291,15 +274,23 @@
     }
 
     @media (max-width: 600px) {
-      .app { padding: 5px; }
+      .app { padding: 3px; }
 
       .content {
-        height: calc(100vh - 10px);
-        padding: 7px;
+        height: calc(100vh - 6px);
+        padding: 5px;
         border-radius: 8px;
       }
 
-      .title { font-size: 14px; }
+      .title { font-size: 13px; }
+
+      .customer-summary {
+        gap: 6px;
+      }
+
+      .status {
+        font-size: 11px;
+      }
 
       .reload-btn,
       .logout-btn {
@@ -309,16 +300,11 @@
       }
 
       table {
-        min-width: 520px;
+        min-width: 560px;
         font-size: 12px;
       }
 
-      .info-pill {
-        max-width: 100%;
-        padding: 2px 6px;
-      }
-
-      th, td { padding: 5px 6px; }
+      th, td { padding: 7px; }
     }
   </style>
 </head>
@@ -341,9 +327,9 @@
   <div class="app">
     <main class="content">
       <div class="header">
-        <div>
-          <div id="customerInfo" class="customer-info">Đang lấy thông tin khách...</div>
-          <div id="statusText" class="status">Đang khởi tạo...</div>
+        <div class="customer-summary">
+          <span class="title">Hàng hóa</span>
+          <span id="statusText" class="status">Đang khởi tạo...</span>
         </div>
 
         <div class="header-actions">
@@ -352,7 +338,7 @@
         </div>
       </div>
 
-      <div id="messageBox" class="message hidden">
+      <div id="messageBox" class="message">
         Đang kiểm tra dữ liệu...
       </div>
 
@@ -398,7 +384,6 @@
 
     const reloadBtn = document.getElementById("reloadBtn");
     const logoutBtn = document.getElementById("logoutBtn");
-    const customerInfo = document.getElementById("customerInfo");
     const statusText = document.getElementById("statusText");
     const messageBox = document.getElementById("messageBox");
     const tableWrap = document.getElementById("tableWrap");
@@ -613,13 +598,11 @@
 
         if (!makh) {
           statusText.textContent = "Thiếu makh";
-          customerInfo.textContent = "Thiếu mã khách hàng";
           hideTable("Không lấy được mã khách hàng từ URL hoặc Chatwoot custom_attributes.", false);
           return;
         }
 
         statusText.textContent = "Mã khách: " + makh;
-        customerInfo.innerHTML = `<span class="info-pill"><b>KH:</b> ${escapeHtml(makh)}</span>`;
         await loadHangHoaTheoKhach(makh);
       } catch (error) {
         statusText.textContent = "Lỗi tải dữ liệu";
@@ -632,7 +615,7 @@
     async function loadHangHoaTheoKhach(makh) {
       const { data, error } = await supabaseClient
         .from(VIEW_HANG_HOA_THEO_KHACH)
-        .select("ma_hang, ten_hang, so_luong, ten_kh, dien_thoai, dia_chi")
+        .select("ma_hang, ten_hang, so_luong")
         .eq("makh", makh)
         .order("so_luong", { ascending: false })
         .limit(MAX_ROWS);
@@ -646,7 +629,6 @@
 
     function renderHangHoa(rows, makh) {
       if (!rows.length) {
-        customerInfo.innerHTML = `<span class="info-pill"><b>KH:</b> ${escapeHtml(makh || "---")}</span>`;
         hideTable("Không tìm thấy hàng hóa đã mua của mã khách: " + makh, false);
         return;
       }
@@ -661,28 +643,14 @@
         `;
       }).join("");
 
-      renderCustomerInfo(rows[0], makh);
-
       messageBox.className = "message ok hidden";
       messageBox.textContent = "";
 
+      statusText.textContent = "KH: " + makh + " · " + rows.length + " mặt hàng";
+
       tableWrap.classList.remove("hidden");
       footerInfo.classList.remove("hidden");
-      footerInfo.textContent = "Tìm thấy " + rows.length + " mặt hàng.";
-    }
-
-
-    function renderCustomerInfo(row, makh) {
-      const tenKh = row && row.ten_kh ? String(row.ten_kh).trim() : "---";
-      const sdt = row && row.dien_thoai ? String(row.dien_thoai).trim() : "---";
-      const diaChi = row && row.dia_chi ? String(row.dia_chi).trim() : "---";
-
-      customerInfo.innerHTML = `
-        <span class="info-pill"><b>KH:</b> ${escapeHtml(makh || "---")}</span>
-        <span class="info-pill"><b>Tên:</b> ${escapeHtml(tenKh)}</span>
-        <span class="info-pill"><b>ĐT:</b> ${escapeHtml(sdt)}</span>
-        <span class="info-pill"><b>ĐC:</b> ${escapeHtml(diaChi)}</span>
-      `;
+      footerInfo.textContent = rows.length + " mặt hàng";
     }
 
     function clearData() {
@@ -691,8 +659,8 @@
       footerInfo.classList.add("hidden");
       footerInfo.textContent = "";
       statusText.textContent = "Chưa đăng nhập";
-      customerInfo.textContent = "Chưa đăng nhập";
       messageBox.className = "message";
+      messageBox.classList.remove("hidden");
       messageBox.textContent = "Vui lòng đăng nhập để xem hàng hóa đã mua.";
     }
 
@@ -703,6 +671,7 @@
       footerInfo.textContent = "";
 
       messageBox.className = isError ? "message error" : "message";
+      messageBox.classList.remove("hidden");
       messageBox.textContent = message || "";
     }
 
