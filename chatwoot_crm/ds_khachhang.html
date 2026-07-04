@@ -3032,7 +3032,7 @@ if (conflictRows.length > 0) {
         option.addEventListener("change", function () {
           handleStaffChange(option);
           updateStaffButtonText();
-          renderCustomers();
+          loadCustomersFromSupabase(1);
         });
       });
     }
@@ -3382,6 +3382,7 @@ if (conflictRows.length > 0) {
       const from = (currentPage - 1) * pageSize;
       const to = from + pageSize - 1;
       const keyword = searchInput.value.trim();
+      const selectedStaffDbCodes = getSelectedStaffDbCodes();
 
       setCustomerLoading(true);
 
@@ -3391,8 +3392,7 @@ if (conflictRows.length > 0) {
       let query = supabaseClient
         .from(TABLE_KHACH_HANG)
         .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, ngay_chat_cuoi, conversation_id, chatwoot_contact_id", { count: "exact" })
-        .order(dbSortField, { ascending: ascending, nullsFirst: false })
-        .range(from, to);
+        .order(dbSortField, { ascending: ascending, nullsFirst: false });
 
       if (keyword) {
         const safeKeyword = keyword.replaceAll("%", "\\%").replaceAll(",", " ");
@@ -3400,6 +3400,12 @@ if (conflictRows.length > 0) {
           `ma_kh.ilike.%${safeKeyword}%,ten_kh.ilike.%${safeKeyword}%,dien_thoai.ilike.%${safeKeyword}%`
         );
       }
+
+      if (selectedStaffDbCodes.length > 0) {
+        query = query.in("ma_nv", selectedStaffDbCodes);
+      }
+
+      query = query.range(from, to);
 
       const { data, error, count } = await query;
 
@@ -3930,6 +3936,22 @@ if (conflictRows.length > 0) {
       }
 
       return selected;
+    }
+
+    function getSelectedStaffDbCodes() {
+      return getSelectedStaffList()
+        .map(function (idNv) {
+          const staff = getStaffByIdNv(idNv) || getStaffByAnyCode(idNv);
+
+          return [
+            staff ? String(staff.ma_nv || "").trim() : "",
+            staff ? normalizeKiotStaffId(staff.id_nv) : normalizeKiotStaffId(idNv)
+          ];
+        })
+        .flat()
+        .filter(function (value, index, arr) {
+          return value && arr.indexOf(value) === index;
+        });
     }
 
     function updateStaffButtonText() {
