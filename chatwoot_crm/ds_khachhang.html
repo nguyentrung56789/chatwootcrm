@@ -1,3 +1,8 @@
+Ok, chỉ sửa đúng 2 chỗ để khi tick nhân viên thì query lại DB + phân trang. Không đụng gì khác.
+
+Copy đè toàn bộ file `ds_khachhang.html` này:
+
+```html
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -54,7 +59,7 @@
 
     .toolbar {
       display: grid;
-      grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.55fr) auto auto;
+      grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.55fr) auto auto auto;
       gap: 6px;
       margin-bottom: 8px;
       align-items: center;
@@ -229,7 +234,7 @@
       background: #ffffff;
       border: 1px solid #d1d5db;
       border-radius: 8px;
-      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 8px 22px rgba(0, 0, 0.12);
       padding: 6px;
       z-index: 1000;
     }
@@ -641,7 +646,7 @@
       background: #111827;
       color: #ffffff;
       border-radius: 12px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+      box-shadow: 0 12px 30px rgba(0, 0, 0.28);
       padding: 12px;
       display: flex;
       align-items: center;
@@ -788,7 +793,7 @@
       background: #ffffff;
       border: 1px solid #d1d5db;
       border-radius: 12px;
-      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 14px 34px rgba(0, 0, 0.2);
       padding: 10px;
     }
 
@@ -868,7 +873,7 @@
 
     .zalo-chat-popover textarea:focus {
       border-color: #2563eb;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 2px rgba(37, 99, 235, 0.12);
     }
 
     .zalo-attach-row {
@@ -993,7 +998,7 @@
       background: #ffffff;
       border-radius: 14px;
       border: 1px solid #e5e7eb;
-      box-shadow: 0 18px 44px rgba(0, 0, 0.28);
+      box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
       padding: 18px;
       color: #111827;
     }
@@ -1103,7 +1108,7 @@
 
     .login-modal input:focus {
       border-color: #2dd4bf;
-      box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15);
+      box-shadow: 0 0 2px rgba(45, 212, 191, 0.15);
     }
 
     #popupLoginBtn {
@@ -1127,7 +1132,7 @@
     .login-message {
       min-height: 18px;
       margin-top: 10px;
-      color: #ff6b;
+      color: #ff6b6b;
       font-size: 14px;
     }
 
@@ -1175,4 +1180,14 @@
       .content {
         padding: 6px;
         border-radius: 6px;
-        height: calc
+        height: calc(100vh - 8px);
+      }
+
+      .toolbar input,
+      #staffDropdownBtn,
+      #searchBtn,
+      #refreshBtn {
+        height: 30px;
+        font-size: 12px;
+      }
+
