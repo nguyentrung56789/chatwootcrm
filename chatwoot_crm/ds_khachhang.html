@@ -1613,6 +1613,7 @@
 
     const TABLE_NHAN_VIEN = getConfiguredTableName("index", "kv_nhan_vien");
     const TABLE_KHACH_HANG = getConfiguredTableName("kh", "sql_khachhang_nhanvien");
+    const TABLE_KHACH_HANG_NHANVIEN = getConfiguredTableName("kh", "kv_khachhang_nhanvien");
     const VIEW_HANG_HOA_THEO_KHACH = "sql_hanghoa_theokhach";
     const PRODUCT_DETAIL_MAX_ROWS = 500;
     const UPDATE_CHATWOOT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
@@ -3214,7 +3215,7 @@ if (conflictRows.length > 0) {
 
       try {
         const { error } = await supabaseClient
-          .from(TABLE_KHACH_HANG)
+          .from(TABLE_KHACH_HANG_NHANVIEN)
           .update({ ma_nv: valueToSave })
           .eq("ma_kh", maKhText);
 
@@ -3530,7 +3531,7 @@ if (conflictRows.length > 0) {
       try {
         for (const change of changes) {
           const { error } = await supabaseClient
-            .from(TABLE_KHACH_HANG)
+            .from(TABLE_KHACH_HANG_NHANVIEN)
             .update({
               ma_nv: change.new_ma_nv || null
             })
