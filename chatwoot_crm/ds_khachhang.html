@@ -1808,7 +1808,7 @@
 
       if (contactId) {
         chatwootFallbackContactId = String(contactId);
-        window.__CHATWOOT_CONTACT_ID__ = String(contactId);
+        window.__CONTACT_ID__ = String(contactId);
       }
 
       if (conversationId || contactId) {
@@ -1979,7 +1979,7 @@
         (c && c.contact && c.contact.id) ||
         (c && c.meta && c.meta.sender && c.meta.sender.id) ||
         chatwootFallbackContactId ||
-        window.__CHATWOOT_CONTACT_ID__ ||
+        window.__CONTACT_ID__ ||
         null;
 
       return contactId ? String(contactId) : null;
@@ -2112,7 +2112,7 @@
       }
 
       const conversationId = contextConversationId || getCurrentConversationId();
-      const contactId = data.chatwoot_contact_id || getCurrentContactId();
+      const contactId = data.contact_id || getCurrentContactId();
 
       return {
         action: action,
@@ -2120,7 +2120,7 @@
         ma_nv: normalizeNullableMaNv(maNv),
         conversation_id: conversationId ? String(conversationId) : null,
         chatwoot_conversation_id: conversationId ? String(conversationId) : null,
-        chatwoot_contact_id: contactId ? String(contactId) : null,
+        contact_id: contactId ? String(contactId) : null,
         source: data.source || "",
         ...data
       };
@@ -2188,7 +2188,7 @@
     function markAssignButtonDone(buttonEl, row, conversationId, contactId) {
       if (row) {
         row.conversation_id = conversationId || row.conversation_id || null;
-        row.chatwoot_contact_id = contactId || row.chatwoot_contact_id || null;
+        row.contact_id = contactId || row.contact_id || null;
       }
 
       if (!buttonEl) {
@@ -2245,7 +2245,7 @@
 
       const { data, error } = await supabaseClient
         .from(TABLE_KHACH_HANG)
-        .select("ma_kh, ma_nv, conversation_id, chatwoot_contact_id")
+        .select("ma_kh, ma_nv, conversation_id, contact_id")
         .eq("conversation_id", cid)
         .limit(100);
 
@@ -2262,7 +2262,7 @@
           ma_nv: normalizeNullableMaNv(row.ma_nv),
           ten_nv: staff ? staff.ten_nv : String(row.ma_nv || ""),
           conversation_id: normalizeConversationId(row.conversation_id),
-          chatwoot_contact_id: row.chatwoot_contact_id || null,
+          contact_id: row.contact_id || null,
           raw: row
         };
       });
@@ -2281,7 +2281,7 @@
 
       const { data, error } = await supabaseClient
         .from(TABLE_KHACH_HANG)
-        .select("ma_kh, ma_nv, conversation_id, chatwoot_contact_id")
+        .select("ma_kh, ma_nv, conversation_id, contact_id")
         .eq("ma_kh", cleanMaKh)
         .limit(1);
 
@@ -2298,7 +2298,7 @@
         ma_nv: normalizeNullableMaNv(row.ma_nv),
         ten_nv: staff ? staff.ten_nv : String(row.ma_nv || ""),
         conversation_id: normalizeConversationId(row.conversation_id),
-        chatwoot_contact_id: row.chatwoot_contact_id || null
+        contact_id: row.contact_id || null
       };
     }
 
@@ -2452,7 +2452,7 @@ if (conflictRows.length > 0) {
             ten_nv: selectedTenNv,
             conversation_id: conversationId,
             chatwoot_conversation_id: conversationId,
-            chatwoot_contact_id: contactId,
+            contact_id: contactId,
             confirm: conflictRows.length > 0 || action === "sua_gan_makh"
           },
           { requireConversation: true, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
@@ -2463,7 +2463,7 @@ if (conflictRows.length > 0) {
           row.ma_nv = selectedIdNv;
           row.ten_nv = selectedTenNv;
           row.conversation_id = conversationId;
-          row.chatwoot_contact_id = contactId;
+          row.contact_id = contactId;
           row.nhan_vien_ids = [selectedIdNv];
         }
 
@@ -2542,7 +2542,7 @@ if (conflictRows.length > 0) {
             old_ma_kh: pendingConfirmAssign.old_ma_kh,
             conversation_id: pendingConfirmAssign.conversation_id,
             chatwoot_conversation_id: pendingConfirmAssign.chatwoot_conversation_id,
-            chatwoot_contact_id: pendingConfirmAssign.chatwoot_contact_id,
+            contact_id: pendingConfirmAssign.contact_id,
             source: "confirm_change_assign"
           },
           { requireConversation: true, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
@@ -2553,7 +2553,7 @@ if (conflictRows.length > 0) {
           pendingConfirmAssign.buttonEl,
           assignedRow,
           pendingConfirmAssign.conversation_id || pendingConfirmAssign.chatwoot_conversation_id,
-          pendingConfirmAssign.chatwoot_contact_id
+          pendingConfirmAssign.contact_id
         );
 
         const result = response && response.result ? response.result : {};
@@ -2649,7 +2649,7 @@ if (conflictRows.length > 0) {
         // Không lấy nhầm hội thoại đang mở nếu dòng khách chưa được gán.
         conversation_id: rowConversationId || currentChatwootConversationId || "",
         row_conversation_id: rowConversationId || "",
-        chatwoot_contact_id: getCurrentContactId() || customer.chatwoot_contact_id || null,
+        contact_id: getCurrentContactId() || customer.contact_id || null,
 
         id_nv: idNv,
         ma_nv: selectedMaNv || idNv,
@@ -2797,7 +2797,7 @@ if (conflictRows.length > 0) {
         formData.append("conversation_id", currentZaloChatRow.conversation_id || "");
         formData.append("chatwoot_conversation_id", currentZaloChatRow.conversation_id || "");
         formData.append("row_conversation_id", currentZaloChatRow.row_conversation_id || "");
-        formData.append("chatwoot_contact_id", currentZaloChatRow.chatwoot_contact_id || "");
+        formData.append("contact_id", currentZaloChatRow.contact_id || "");
         formData.append("message", message || "");
 
         // Bản đơn nhân viên: chỉ gửi 1 nhân viên phụ trách.
@@ -3390,7 +3390,7 @@ if (conflictRows.length > 0) {
 
       let query = supabaseClient
         .from(TABLE_KHACH_HANG)
-        .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, ngay_chat_cuoi, conversation_id, chatwoot_contact_id", { count: "exact" })
+        .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, ngay_chat_cuoi, conversation_id, contact_id", { count: "exact" })
         .order(dbSortField, { ascending: ascending, nullsFirst: false })
         .range(from, to);
 
@@ -3432,7 +3432,7 @@ if (conflictRows.length > 0) {
           ma_nv: normalizeNullableMaNv(item.ma_nv),
           ngay_chat_cuoi: item.ngay_chat_cuoi || null,
           conversation_id: item.conversation_id || null,
-          chatwoot_contact_id: item.chatwoot_contact_id || null
+          contact_id: item.contact_id || null
         };
       });
 
@@ -3459,7 +3459,7 @@ if (conflictRows.length > 0) {
 
       let query = supabaseClient
         .from(TABLE_KHACH_HANG)
-        .select("ma_kh, ten_kh, dien_thoai, congno, ngay_chat_cuoi, conversation_id, chatwoot_contact_id", { count: "exact" })
+        .select("ma_kh, ten_kh, dien_thoai, congno, ngay_chat_cuoi, conversation_id, contact_id", { count: "exact" })
         .order(dbSortField, { ascending: ascending, nullsFirst: false })
         .range(from, to);
 
@@ -3496,7 +3496,7 @@ if (conflictRows.length > 0) {
           ma_nv: "",
           ngay_chat_cuoi: item.ngay_chat_cuoi || null,
           conversation_id: item.conversation_id || null,
-          chatwoot_contact_id: item.chatwoot_contact_id || null
+          contact_id: item.contact_id || null
         };
       });
 
