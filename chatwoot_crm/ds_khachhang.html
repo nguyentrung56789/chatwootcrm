@@ -1,6 +1,11 @@
-Ok, chỉ đụng đúng phần lọc. Không sửa login hay UI.
+Bạn bị lỗi không hiện form login vì 2 chỗ:
 
-Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → sort → range + debounce 300ms + abort request cũ.**
+1. `initPage()` gọi trong `.then()` của `initSupabase()`. Nếu `initSupabase()` lỗi hoặc `/api/getConfig` không trả về thì `initPage()` không chạy → không check login → không mở popup.
+2. Thiếu `DOMContentLoaded`. Script chạy trước khi DOM load xong nên `document.getElementById("loginPopup")` có thể null.
+
+**Fix: Bọc toàn bộ init vào `DOMContentLoaded` + dùng `.finally()` để luôn chạy `initPage()`**
+
+Đây là file hoàn chỉnh, chỉ sửa đúng phần init + thêm guard cho loginPopup:
 
 ```html
 <!DOCTYPE html>
@@ -19,19 +24,18 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
     .hidden { display: none !important; }
     .app { width: 100%; height: 100vh; padding: 6px; background: #f3f4f6; overflow: hidden; }
     .content { width: 100%; height: calc(100vh - 12px); background: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; overflow: hidden; }
-    .toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.55fr) auto auto; gap: 6px; margin-bottom: 8px; align-items: center; position: relative; z-index: 30; background: #ffffff; flex: 0 0 auto; }
+    .toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.55fr) auto auto auto; gap: 6px; margin-bottom: 8px; align-items: center; position: relative; z-index: 30; background: #ffffff; flex: 0 0 auto; }
     .toolbar input { width: 100%; height: 34px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 13px; outline: none; background: #ffffff; color: #111827; }
     .toolbar input:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
-    #searchBtn, #refreshBtn, #columnToggleBtn { height: 34px; border: none; color: #ffffff; padding: 0 12px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
-    #searchBtn { min-width: 78px; background: #2563eb; }
+    #searchBtn { height: 34px; min-width: 78px; border: none; background: #2563eb; color: #ffffff; padding: 0 12px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
     #searchBtn:hover { background: #1d4ed8; }
     #searchBtn.loading { opacity: 0.65; pointer-events: none; }
-    #refreshBtn { min-width: 92px; background: #10b981; }
+    #refreshBtn { height: 34px; min-width: 92px; border: none; background: #10b981; color: #ffffff; padding: 0 12px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
     #refreshBtn:hover { background: #059669; }
     #refreshBtn.loading, #refreshBtn:disabled { opacity: 0.65; pointer-events: none; cursor: not-allowed; }
-    #columnToggleBtn { min-width: 82px; background: #374151; }
-    #columnToggleBtn:hover { background: #1f2937; }
     .column-dropdown { position: relative; }
+    #columnToggleBtn { height: 34px; min-width: 82px; border: none; background: #374151; color: #ffffff; padding: 0 12px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
+    #columnToggleBtn:hover { background: #1f2937; }
     .column-dropdown-menu { position: absolute; top: 38px; right: 0; width: 220px; max-height: 300px; overflow-y: auto; background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16); padding: 8px; z-index: 1200; }
     .column-dropdown-menu label { display: flex; align-items: center; gap: 8px; padding: 7px 6px; border-radius: 7px; cursor: pointer; font-size: 13px; color: #111827; }
     .column-dropdown-menu label:hover { background: #f3f4f6; }
@@ -56,14 +60,6 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
     .customer-table button:hover { background: #1d4ed8; }
     .customer-table tbody { transition: opacity 0.12s ease; }
     .customer-table tbody.loading { opacity: 0.45; pointer-events: none; }
-    .customer-table th.resizable { position: sticky; top: 0; }
-    .col-resizer { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize; user-select: none; touch-action: none; z-index: 30; }
-    .col-resizer::after { content: ""; position: absolute; top: 20%; bottom: 20%; left: 3px; width: 1px; background: transparent; }
-    .col-resizer:hover::after, .col-resizer.active::after { background: #2563eb; }
-    body.resizing-column { cursor: col-resize; user-select: none; }
-    .staff-cell-select { width: 100%; height: 34px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; color: #111827; font-size: 13px; padding: 0 6px; cursor: pointer; }
-    .staff-cell-select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 2px rgba(37, 99, 235, 0.12); }
-    .staff-cell-select.changed { border-color: #f97316; background: #fff7ed; }
     .footer-actions { margin-top: 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; color: #6b7280; flex-wrap: wrap; background: #ffffff; padding-top: 6px; padding-bottom: 2px; flex: 0 0 auto; }
     .page-actions, .user-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     #pageSizeSelect { height: 28px; border: 1px solid #d1d5db; background: #ffffff; border-radius: 6px; padding: 0 8px; font-size: 12px; color: #111827; }
@@ -76,7 +72,7 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
     #userInfo { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #logoutBtn { border: none; background: #ef4444; color: #ffffff; padding: 5px 8px; border-radius: 5px; font-size: 11px; cursor: pointer; white-space: nowrap; }
     #logoutBtn:hover { background: #dc2626; }
-    .notice-box { position: fixed; right: 18px; bottom: 82px; z-index: 5001; width: 360px; max-width: calc(100vw - 36px); min-height: 70px; background: #ffffff; border: 1px solid #d1d5db; border-radius: 12px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18); padding: 12px; color: #111827; font-size: 13px; }
+    .notice-box { position: fixed; right: 18px; bottom: 82px; z-index: 5001; width: 360px; max-width: calc(100vw - 36px); min-height: 70px; background: #ffffff; border: 1px solid #d1d5db; border-radius: 12px; box-shadow: 0 12px 30px rgba(0, 0, 0.18); padding: 12px; color: #111827; font-size: 13px; }
     .login-popup { position: fixed; inset: 0; background: rgba(7, 16, 37, 0.72); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }
     .login-modal { width: min(380px, 92vw); background: #0f1830; color: #e6edff; border-radius: 16px; padding: 26px 22px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); text-align: center; }
     .login-modal h2 { margin: 0 0 16px; font-size: 24px; line-height: 1.2; }
@@ -184,26 +180,11 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
     }
     const TABLE_NHAN_VIEN = getConfiguredTableName("index", "kv_nhan_vien");
     const TABLE_KHACH_HANG = getConfiguredTableName("kh", "sql_khachhang_nhanvien");
-    const TABLE_KHACH_HANG_NHANVIEN = getConfiguredTableName("kh", "kv_khachhang_nhanvien");
     
-    let currentUser = getLoginUser();
-    const COLUMN_VISIBILITY_STORAGE_KEY = "ds_khachhang_hidden_columns";
-    const CUSTOMER_TABLE_COLUMNS = [
-      { key: "ma_kh", label: "Mã KH", required: true },
-      { key: "ten_kh", label: "Tên khách hàng", required: true },
-      { key: "sdt", label: "Số điện thoại" },
-      { key: "cong_no", label: "Công nợ" },
-      { key: "ma_nv", label: "Nhân viên" },
-      { key: "ngay_chat_cuoi", label: "Ngày" },
-      { key: "conversation_id", label: "ID hộp thoại" },
-      { key: "action", label: "Thao tác", required: true }
-    ];
-    let hiddenColumns = [];
+    let currentUser = null;
     let sortField = "";
     let sortDirection = "asc";
     let supabaseClient = null;
-    let SUPABASE_REST_URL = "";
-    let SUPABASE_REST_ANON = "";
     let customers = [];
     let currentPage = 1;
     let pageSize = 100;
@@ -224,8 +205,6 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
     const searchInput = document.getElementById("searchInput");
     const searchBtn = document.getElementById("searchBtn");
     const refreshBtn = document.getElementById("refreshBtn");
-    const columnToggleBtn = document.getElementById("columnToggleBtn");
-    const columnToggleMenu = document.getElementById("columnToggleMenu");
     const customerBody = document.getElementById("customerBody");
     const firstPageBtn = document.getElementById("firstPageBtn");
     const prevPageBtn = document.getElementById("prevPageBtn");
@@ -257,7 +236,14 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
       return raw ? raw : null;
     }
     function escapeHtml(value) { return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
-    function escapeJs(value) { return String(value).replaceAll("\\", "\\\\").replaceAll("'", "\\'"); }
+    function showNotice(message, type = "ok", timeoutMs = 10000) {
+      noticeBox.classList.remove("hidden");
+      noticeBox.innerHTML = escapeHtml(message);
+      noticeBox.style.whiteSpace = "pre-wrap"; noticeBox.style.lineHeight = "1.45"; noticeBox.style.maxHeight = "45vh"; noticeBox.style.overflowY = "auto"; noticeBox.style.width = "520px"; noticeBox.style.fontSize = "13px";
+      if (type === "error") { noticeBox.style.borderColor = "#fecaca"; noticeBox.style.background = "#fef2f2"; noticeBox.style.color = "#991b1b"; } 
+      else { noticeBox.style.borderColor = "#bbf7d0"; noticeBox.style.background = "#f0fdf4"; noticeBox.style.color = "#166534"; }
+      if (timeoutMs > 0) setTimeout(() => { noticeBox.classList.add("hidden"); noticeBox.innerHTML = ""; }, timeoutMs);
+    }
 
     async function initSupabase() {
       try {
@@ -283,8 +269,6 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
           popupLoginMessage.textContent = "Chưa lấy được Supabase URL hoặc anon key.";
           return;
         }
-        SUPABASE_REST_URL = supabaseUrl;
-        SUPABASE_REST_ANON = supabaseAnon;
         supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnon);
         popupCfgNote.textContent = "Sẵn sàng đăng nhập";
         popupLoginMessage.textContent = "";
@@ -294,6 +278,14 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
         popupLoginMessage.textContent = error.message || "Không lấy được cấu hình.";
       }
     }
+
+    function openLoginPopup() { 
+      console.log("openLoginPopup called, loginPopup:", loginPopup);
+      if (loginPopup) loginPopup.classList.remove("hidden"); 
+      setTimeout(() => popupMaNvInput && popupMaNvInput.focus(), 100); 
+    }
+    function closeLoginPopup() { if (loginPopup) loginPopup.classList.add("hidden"); }
+    function showUserInfo() { userInfo.textContent = `${currentUser.ten_nv || currentUser.ma_nv} - ${currentUser.ma_nv}`; }
 
     async function initPage() {
       currentUser = getLoginUser();
@@ -309,10 +301,6 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
       await loadStaffFromSupabase();
       await loadCustomersFromSupabase(1);
     }
-
-    function openLoginPopup() { loginPopup.classList.remove("hidden"); setTimeout(() => popupMaNvInput.focus(), 100); }
-    function closeLoginPopup() { loginPopup.classList.add("hidden"); }
-    function showUserInfo() { userInfo.textContent = `${currentUser.ten_nv || currentUser.ma_nv} - ${currentUser.ma_nv}`; }
 
     popupLoginBtn.addEventListener("click", loginFromPopup);
     popupMatKhauInput.addEventListener("keydown", (e) => { if (e.key === "Enter") loginFromPopup(); });
@@ -341,33 +329,6 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
       localStorage.setItem(LOGIN_STORAGE_KEY, JSON.stringify(currentUser));
       popupMaNvInput.value = ""; popupMatKhauInput.value = ""; popupLoginMessage.textContent = "";
       closeLoginPopup(); showUserInfo(); await loadStaffFromSupabase(); await loadCustomersFromSupabase(1);
-    }
-
-    function showNotice(message, type = "ok", timeoutMs = 10000) {
-      noticeBox.classList.remove("hidden");
-      noticeBox.innerHTML = escapeHtml(message);
-      noticeBox.style.whiteSpace = "pre-wrap"; noticeBox.style.lineHeight = "1.45"; noticeBox.style.maxHeight = "45vh"; noticeBox.style.overflowY = "auto"; noticeBox.style.width = "520px"; noticeBox.style.fontSize = "13px";
-      if (type === "error") { noticeBox.style.borderColor = "#fecaca"; noticeBox.style.background = "#fef2f2"; noticeBox.style.color = "#991b1b"; } 
-      else { noticeBox.style.borderColor = "#bbf7d0"; noticeBox.style.background = "#f0fdf4"; noticeBox.style.color = "#166534"; }
-      if (timeoutMs > 0) setTimeout(() => { noticeBox.classList.add("hidden"); noticeBox.innerHTML = ""; }, timeoutMs);
-    }
-
-    function getCustomerByMaKh(maKh) { return customers.find((item) => String(item.ma_kh || "") === String(maKh || "")) || null; }
-    function getStaffByAnyCode(value) {
-      const code = normalizeKiotStaffId(value).toLowerCase();
-      if (!code) return null;
-      return staffRows.find((staff) => normalizeKiotStaffId(staff.id_nv).toLowerCase() === code || String(staff.ma_nv || "").trim().toLowerCase() === code) || null;
-    }
-    function getCustomerStaffIds(maKh) {
-      const customer = getCustomerByMaKh(maKh); if (!customer) return [];
-      const savedCode = normalizeKiotStaffId(customer.ma_nv || customer.id_nv); if (!savedCode) return [];
-      const staff = getStaffByAnyCode(savedCode); return [staff ? normalizeKiotStaffId(staff.id_nv) : savedCode];
-    }
-    function getCustomerStaffRows(maKh) {
-      const customer = getCustomerByMaKh(maKh); if (!customer) return [];
-      const savedCode = normalizeKiotStaffId(customer.ma_nv || customer.id_nv); if (!savedCode) return [];
-      const staff = getStaffByAnyCode(savedCode); const idNv = staff ? normalizeKiotStaffId(staff.id_nv) : savedCode;
-      return [{ id_nv: idNv, ma_nv: staff ? staff.ma_nv : savedCode, ten_nv: staff ? staff.ten_nv : savedCode }];
     }
 
     async function loadStaffFromSupabase() {
@@ -411,30 +372,87 @@ Copy nguyên file này đè lên là chạy. **Đã fix thứ tự: filter → s
       const selectedOptions = Array.from(document.querySelectorAll(".staff-option")).filter((opt) => opt.checked);
       const selectedValues = selectedOptions.map((opt) => opt.value);
       if (selectedValues.length === 0 || selectedValues.includes("all")) { staffDropdownBtn.textContent = "Tất cả nhân viên"; return; }
-      const selectedNames = selectedOptions.map((opt) => opt.dataset.name || getStaffNameByCode(opt.value));
+      const selectedNames = selectedOptions.map((opt) => opt.dataset.name || opt.value);
       staffDropdownBtn.textContent = selectedNames.join(", ");
     }
-    function getStaffNameByCode(maNv) {
-      const code = String(maNv || "").trim().toLowerCase();
-      const found = staffRows.find((staff) => String(staff.ma_nv || "").trim().toLowerCase() === code);
-      return found ? found.ten_nv : maNv;
+    function getStaffByAnyCode(value) {
+      const code = normalizeKiotStaffId(value).toLowerCase();
+      if (!code) return null;
+      return staffRows.find((staff) => normalizeKiotStaffId(staff.id_nv).toLowerCase() === code || String(staff.ma_nv || "").trim().toLowerCase() === code) || null;
     }
 
-    function renderStaffSelect(maKh) {
-      const currentId = getCustomerStaffIds(maKh)[0] || "";
-      const options = [`<option value=""> </option>`, ...staffRows.map((staff) => {
-        const idNv = normalizeKiotStaffId(staff.id_nv);
-        const label = staff.ten_nv || idNv;
-        const selected = idNv && idNv === currentId ? " selected" : "";
-        return `<option value="${escapeHtml(idNv)}"${selected}>${escapeHtml(label)}</option>`;
-      })].join("");
-      return `<select class="staff-cell-select" data-ma-kh="${escapeHtml(maKh || "")}" onchange="saveCustomerStaffAssignment('${escapeJs(maKh)}', this.value)">${options}</select>`;
+    function getDbSortField() {
+      if (sortField === "cong_no") return "congno";
+      if (sortField === "sdt") return "dien_thoai";
+      if (sortField === "ma_nv") return "ma_nv";
+      if (sortField === "ngay_chat_cuoi") return "ngay_chat_cuoi";
+      if (sortField === "conversation_id") return "conversation_id";
+      if (sortField === "ten_kh") return "ten_kh";
+      if (sortField === "ma_kh") return "ma_kh";
+      return "ma_kh";
     }
-    function updateCustomerStaffEditorUI(maKh) {
-      const maKhText = String(maKh || "").trim();
-      const currentId = getCustomerStaffIds(maKhText)[0] || "";
-      document.querySelectorAll(`.staff-cell-select[data-ma-kh="${cssEscapeValue(maKhText)}"]`).forEach((select) => { select.value = currentId; });
-    }
-    function cssEscapeValue(value) { if (window.CSS && typeof window.CSS.escape === "function") return window.CSS.escape(String(value || "")); return String(value || "").replaceAll("\\", "\\\\").replaceAll('"', '\"'); }
+    function getDbSortAscending() { return sortDirection !== "desc"; }
 
-    async function saveCustomerStaffAssignment(ma
+    function setCustomerLoading(isLoading) {
+      isLoadingCustomers = isLoading;
+      if (isLoading) {
+        customerBody.classList.add("loading"); searchBtn.classList.add("loading");
+        firstPageBtn.disabled = true; prevPageBtn.disabled = true; nextPageBtn.disabled = true; lastPageBtn.disabled = true;
+        pageSizeSelect.disabled = true; pageInput.disabled = true;
+        if (!customers || customers.length === 0) customerBody.innerHTML = `<tr><td colspan="8">Đang tải danh sách khách hàng...</td></tr>`;
+      } else {
+        customerBody.classList.remove("loading"); searchBtn.classList.remove("loading");
+        pageSizeSelect.disabled = false; pageInput.disabled = false;
+        updatePagination();
+      }
+    }
+
+    async function refreshCustomersSmooth() {
+      if (isLoadingCustomers) return;
+      if (!supabaseClient) { showNotice("Supabase chưa sẵn sàng.", "error", 2500); return; }
+      if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.classList.add("loading"); refreshBtn.textContent = "Đang làm mới..."; }
+      try {
+        await loadCustomersFromSupabase(currentPage);
+        showNotice("Đã làm mới dữ liệu.");
+      } catch (error) {
+        console.error("Lỗi làm mới:", error);
+        showNotice("Lỗi làm mới: " + (error.message || JSON.stringify(error)), "error", 3500);
+      } finally {
+        if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.classList.remove("loading"); refreshBtn.textContent = "↻ Làm mới"; }
+      }
+    }
+
+    async function loadCustomersFromSupabase(page = 1) {
+      if (isLoadingCustomers) return;
+      if (!supabaseClient) { customerBody.innerHTML = `<tr><td colspan="8">Supabase chưa sẵn sàng.</td></tr>`; return; }
+      if (currentAbortController) currentAbortController.abort();
+      currentAbortController = new AbortController();
+      currentPage = page;
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
+      const keyword = searchInput.value.trim();
+      const staffList = getSelectedStaffList();
+      setCustomerLoading(true);
+      const dbSortField = getDbSortField();
+      const ascending = getDbSortAscending();
+
+      // QUAN TRỌNG: Thứ tự đúng phải là: select -> filter -> order -> range
+      let query = supabaseClient.from(TABLE_KHACH_HANG).select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, id_nv, ngay_chat_cuoi, conversation_id, contact_id", { count: "exact" });
+      
+      // 1. FILTER TRƯỚC
+      if (keyword) {
+        const safeKeyword = keyword.replaceAll("%", "\\%").replaceAll(",", " ");
+        query = query.or(`ma_kh.ilike.%${safeKeyword}%,ten_kh.ilike.%${safeKeyword}%,dien_thoai.ilike.%${safeKeyword}%`);
+      }
+      if (staffList.length > 0) query = query.in('ma_nv', staffList);
+      
+      // 2. ORDER SAU FILTER
+      query = query.order(dbSortField, { ascending: ascending, nullsFirst: false });
+      
+      // 3. PHÂN TRANG CUỐI CÙNG
+      query = query.range(from, to);
+
+      const { data, error, count } = await query.abortSignal(currentAbortController.signal);
+      if (error) {
+        if (error.name === 'AbortError') return;
+        customerBody.innerHTML = `<tr><td colspan="8">Lỗi tải dữ liệu:
