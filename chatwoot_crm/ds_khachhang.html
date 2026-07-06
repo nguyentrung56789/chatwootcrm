@@ -3196,76 +3196,43 @@ if (conflictRows.length > 0) {
 
       await saveCustomerStaffAssignment(maKh, "");
     }
-    async function saveCustomerStaffAssignment(maKh, selectedIdNv) {
-      const maKhText = String(maKh || "").trim();
-      const idNv = normalizeKiotStaffId(selectedIdNv);
+async function saveCustomerStaffAssignment(maKh, selectedIdNv) {
+  const maKhText = String(maKh || "").trim();
+  const idNvMoi = normalizeKiotStaffId(selectedIdNv);
+  if (!maKhText) return;
+  if (!supabaseClient) {
+    showNotice("Supabase chưa sẵn sàng.", "error", 2500);
+    return;
+  }
 
-      if (!maKhText) {
-        return;
-      }
+  const found = getCustomerByMaKh(maKhText);
+  const staff = idNvMoi ? getStaffByAnyCode(idNvMoi) : null;
+  const maNvMoi = staff ? normalizeNullableMaNv(staff.ma_nv) : null;
 
-      if (!supabaseClient) {
-        showNotice("Supabase chưa sẵn sàng.", "error", 2500);
-        return;
-      }
+  try {
+    const { error } = await supabaseClient
+      .from(TABLE_KHACH_HANG_NHANVIEN)
+      .update({ ma_nv: maNvMoi }) // chỉ update ma_nv
+      .eq("ma_kh", maKhText);     // tìm dòng theo ma_kh
 
-      const found = getCustomerByMaKh(maKhText);
-      const staff = idNv ? getStaffByAnyCode(idNv) : null;
-      const valueToSave = idNv || null;
+    if (error) throw error;
 
-      try {
-        const { error } = await supabaseClient
-          .from(TABLE_KHACH_HANG_NHANVIEN)
-          .update({ ma_nv: valueToSave })
-          .eq("ma_kh", maKhText);
-
-        if (error) {
-          throw error;
-        }
-
-        if (found) {
-          found.ma_nv = valueToSave;
-          found.id_nv = staff ? normalizeKiotStaffId(staff.id_nv) : valueToSave;
-          found.ten_nv = staff ? staff.ten_nv : null;
-          found.nhan_vien_ids = valueToSave ? [found.id_nv] : [];
-        }
-
-        updateCustomerStaffEditorUI(maKhText);
-        renderCustomers();
-
-        await sendCustomerWebhook(
-          "set_khachhang_nhanvien",
-          maKhText,
-          valueToSave,
-          {
-            table: TABLE_KHACH_HANG_NHANVIEN,
-            source: "kv_khachhang_ma_nv_select",
-            mode: "single_staff_kv_khachhang_only",
-            id_nv: staff ? normalizeKiotStaffId(staff.id_nv) : valueToSave,
-            ma_nv: valueToSave,
-            selected_id_nv: staff ? normalizeKiotStaffId(staff.id_nv) : valueToSave,
-            selected_ma_nv: valueToSave,
-            selected_ten_nv: staff ? staff.ten_nv : ""
-          },
-          { requireConversation: false, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
-        ).catch(function (webhookError) {
-          console.warn("Webhook cập nhật nhân viên lỗi:", webhookError);
-        });
-
-        showNotice(valueToSave
-          ? "Đã cập nhật nhân viên phụ trách cho " + maKhText
-          : "Đã bỏ nhân viên phụ trách của " + maKhText,
-          "ok",
-          1800
-        );
-      } catch (error) {
-        console.error("Lỗi lưu ma_nv vào kv_khachhang_nhanvien:", error);
-        showNotice("Lỗi lưu nhân viên: " + (error.message || JSON.stringify(error)), "error", 4500);
-        if (found) {
-          updateCustomerStaffEditorUI(maKhText);
-        }
-      }
+    if (found) {
+      found.ma_nv = maNvMoi;
+      found.id_nv = idNvMoi;
+      found.ten_nv = staff ? staff.ten_nv : null;
     }
+
+    updateCustomerStaffEditorUI(maKhText);
+    renderCustomers();
+
+    showNotice(maNvMoi ? "Đã cập nhật mã NV: " + maNvMoi : "Đã xóa mã NV", "ok", 1800);
+  } catch (error) {
+    console.error("Lỗi update ma_nv:", error);
+    showNotice("Lỗi lưu mã NV: " + (error.message || JSON.stringify(error)), "error", 4500);
+    if (found) updateCustomerStaffEditorUI(maKhText);
+  }
+}
 
     function updateFloatingSaveBar() {
       const count = Object.keys(pendingStaffChanges).length;
