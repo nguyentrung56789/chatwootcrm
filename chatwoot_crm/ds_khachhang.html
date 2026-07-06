@@ -1613,7 +1613,7 @@
 
     const TABLE_NHAN_VIEN = getConfiguredTableName("index", "kv_nhan_vien");
     const TABLE_KHACH_HANG = getConfiguredTableName("kh", "sql_khachhang_nhanvien");
-    const TABLE_KHACH_HANG_NHANVIEN = getConfiguredTableName("khnv", "kv_khachhang_nhanvien")
+    const TABLE_KHACH_HANG_NHANVIEN = getConfiguredTableName("kh", "kv_khachhang_nhanvien")
     const VIEW_HANG_HOA_THEO_KHACH = "sql_hanghoa_theokhach";
     const PRODUCT_DETAIL_MAX_ROWS = 500;
     const UPDATE_CHATWOOT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
@@ -2245,13 +2245,13 @@
       }
 
       const { data, error } = await supabaseClient
-        .from(TABLE_KHACH_HANG_NHANVIEN)
+        .from(TABLE_KHACH_HANG)
         .select("ma_kh, ma_nv, conversation_id, contact_id")
         .eq("conversation_id", cid)
         .limit(100);
 
       if (error) {
-        throw new Error("Không kiểm tra được conversation_id trong kv_khachhang: " + (error.message || JSON.stringify(error)));
+        throw new Error("Không kiểm tra được conversation_id trong kv_khachhang_nhanvien: " + (error.message || JSON.stringify(error)));
       }
 
       return (data || []).map(function (row) {
@@ -3215,7 +3215,7 @@ if (conflictRows.length > 0) {
 
       try {
         const { error } = await supabaseClient
-          .from(TABLE_KHACH_HANG)
+          .from(TABLE_KHACH_HANG_NHANVIEN)
           .update({ ma_nv: valueToSave })
           .eq("ma_kh", maKhText);
 
