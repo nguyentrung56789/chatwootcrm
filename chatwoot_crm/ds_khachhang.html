@@ -1613,7 +1613,6 @@
 
     const TABLE_NHAN_VIEN = getConfiguredTableName("index", "kv_nhan_vien");
     const TABLE_KHACH_HANG = getConfiguredTableName("kh", "sql_khachhang_nhanvien");
-    const TABLE_KHACH_HANG_NHANVIEN = getConfiguredTableName("kh", "kv_khachhang_nhanvien")
     const VIEW_HANG_HOA_THEO_KHACH = "sql_hanghoa_theokhach";
     const PRODUCT_DETAIL_MAX_ROWS = 500;
     const UPDATE_CHATWOOT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
@@ -2251,7 +2250,7 @@
         .limit(100);
 
       if (error) {
-        throw new Error("Không kiểm tra được conversation_id trong kv_khachhang_nhanvien: " + (error.message || JSON.stringify(error)));
+        throw new Error("Không kiểm tra được conversation_id trong kv_khachhang: " + (error.message || JSON.stringify(error)));
       }
 
       return (data || []).map(function (row) {
@@ -3033,7 +3032,7 @@ if (conflictRows.length > 0) {
         option.addEventListener("change", function () {
           handleStaffChange(option);
           updateStaffButtonText();
-          renderCustomers();
+          loadCustomersFromSupabase(1);
         });
       });
     }
@@ -3196,43 +3195,76 @@ if (conflictRows.length > 0) {
 
       await saveCustomerStaffAssignment(maKh, "");
     }
-async function saveCustomerStaffAssignment(maKh, selectedIdNv) {
-  const maKhText = String(maKh || "").trim();
-  const idNvMoi = normalizeKiotStaffId(selectedIdNv);
-  if (!maKhText) return;
-  if (!supabaseClient) {
-    showNotice("Supabase chưa sẵn sàng.", "error", 2500);
-    return;
-  }
+    async function saveCustomerStaffAssignment(maKh, selectedIdNv) {
+      const maKhText = String(maKh || "").trim();
+      const idNv = normalizeKiotStaffId(selectedIdNv);
 
-  const found = getCustomerByMaKh(maKhText);
-  const staff = idNvMoi ? getStaffByAnyCode(idNvMoi) : null;
-  const maNvMoi = staff ? normalizeNullableMaNv(staff.ma_nv) : null;
+      if (!maKhText) {
+        return;
+      }
 
-  try {
-    const { error } = await supabaseClient
-      .from(TABLE_KHACH_HANG_NHANVIEN)
-      .update({ ma_nv: maNvMoi }) // chỉ update ma_nv
-      .eq("ma_kh", maKhText);     // tìm dòng theo ma_kh
+      if (!supabaseClient) {
+        showNotice("Supabase chưa sẵn sàng.", "error", 2500);
+        return;
+      }
 
-    if (error) throw error;
+      const found = getCustomerByMaKh(maKhText);
+      const staff = idNv ? getStaffByAnyCode(idNv) : null;
+      const valueToSave = idNv || null;
 
-    if (found) {
-      found.ma_nv = maNvMoi;
-      found.id_nv = idNvMoi;
-      found.ten_nv = staff ? staff.ten_nv : null;
+      try {
+        const { error } = await supabaseClient
+          .from(TABLE_KHACH_HANG)
+          .update({ ma_nv: valueToSave })
+          .eq("ma_kh", maKhText);
+
+        if (error) {
+          throw error;
+        }
+
+        if (found) {
+          found.ma_nv = valueToSave;
+          found.id_nv = staff ? normalizeKiotStaffId(staff.id_nv) : valueToSave;
+          found.ten_nv = staff ? staff.ten_nv : null;
+          found.nhan_vien_ids = valueToSave ? [found.id_nv] : [];
+        }
+
+        updateCustomerStaffEditorUI(maKhText);
+        renderCustomers();
+
+        await sendCustomerWebhook(
+          "set_khachhang_nhanvien",
+          maKhText,
+          valueToSave,
+          {
+            table: TABLE_KHACH_HANG,
+            source: "kv_khachhang_ma_nv_select",
+            mode: "single_staff_kv_khachhang_only",
+            id_nv: staff ? normalizeKiotStaffId(staff.id_nv) : valueToSave,
+            ma_nv: valueToSave,
+            selected_id_nv: staff ? normalizeKiotStaffId(staff.id_nv) : valueToSave,
+            selected_ma_nv: valueToSave,
+            selected_ten_nv: staff ? staff.ten_nv : ""
+          },
+          { requireConversation: false, webhookUrl: UPDATE_CHATWOOT_WEBHOOK_URL }
+        ).catch(function (webhookError) {
+          console.warn("Webhook cập nhật nhân viên lỗi:", webhookError);
+        });
+
+        showNotice(valueToSave
+          ? "Đã cập nhật nhân viên phụ trách cho " + maKhText
+          : "Đã bỏ nhân viên phụ trách của " + maKhText,
+          "ok",
+          1800
+        );
+      } catch (error) {
+        console.error("Lỗi lưu ma_nv vào kv_khachhang:", error);
+        showNotice("Lỗi lưu nhân viên: " + (error.message || JSON.stringify(error)), "error", 4500);
+        if (found) {
+          updateCustomerStaffEditorUI(maKhText);
+        }
+      }
     }
-
-    updateCustomerStaffEditorUI(maKhText);
-    renderCustomers();
-
-    showNotice(maNvMoi ? "Đã cập nhật mã NV: " + maNvMoi : "Đã xóa mã NV", "ok", 1800);
-  } catch (error) {
-    console.error("Lỗi update ma_nv:", error);
-    showNotice("Lỗi lưu mã NV: " + (error.message || JSON.stringify(error)), "error", 4500);
-    if (found) updateCustomerStaffEditorUI(maKhText);
-  }
-}
 
     function updateFloatingSaveBar() {
       const count = Object.keys(pendingStaffChanges).length;
@@ -3350,6 +3382,7 @@ async function saveCustomerStaffAssignment(maKh, selectedIdNv) {
       const from = (currentPage - 1) * pageSize;
       const to = from + pageSize - 1;
       const keyword = searchInput.value.trim();
+      const selectedStaffDbCodes = getSelectedStaffDbCodes();
 
       setCustomerLoading(true);
 
@@ -3358,9 +3391,8 @@ async function saveCustomerStaffAssignment(maKh, selectedIdNv) {
 
       let query = supabaseClient
         .from(TABLE_KHACH_HANG)
-        .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, id_nv, ngay_chat_cuoi, conversation_id, contact_id", { count: "exact" })
-        .order(dbSortField, { ascending: ascending, nullsFirst: false })
-        .range(from, to);
+        .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, ngay_chat_cuoi, conversation_id, contact_id", { count: "exact" })
+        .order(dbSortField, { ascending: ascending, nullsFirst: false });
 
       if (keyword) {
         const safeKeyword = keyword.replaceAll("%", "\\%").replaceAll(",", " ");
@@ -3368,6 +3400,12 @@ async function saveCustomerStaffAssignment(maKh, selectedIdNv) {
           `ma_kh.ilike.%${safeKeyword}%,ten_kh.ilike.%${safeKeyword}%,dien_thoai.ilike.%${safeKeyword}%`
         );
       }
+
+      if (selectedStaffDbCodes.length > 0) {
+        query = query.in("ma_nv", selectedStaffDbCodes);
+      }
+
+      query = query.range(from, to);
 
       const { data, error, count } = await query;
 
@@ -3898,6 +3936,22 @@ async function saveCustomerStaffAssignment(maKh, selectedIdNv) {
       }
 
       return selected;
+    }
+
+    function getSelectedStaffDbCodes() {
+      return getSelectedStaffList()
+        .map(function (idNv) {
+          const staff = getStaffByIdNv(idNv) || getStaffByAnyCode(idNv);
+
+          return [
+            staff ? String(staff.ma_nv || "").trim() : "",
+            staff ? normalizeKiotStaffId(staff.id_nv) : normalizeKiotStaffId(idNv)
+          ];
+        })
+        .flat()
+        .filter(function (value, index, arr) {
+          return value && arr.indexOf(value) === index;
+        });
     }
 
     function updateStaffButtonText() {
@@ -4750,6 +4804,5 @@ async function saveCustomerStaffAssignment(maKh, selectedIdNv) {
       }
     }
   </script>
-
 </body>
 </html>
