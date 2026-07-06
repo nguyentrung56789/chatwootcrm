@@ -1639,7 +1639,6 @@
     let customers = [];
     let customerProductCache = {};
     let openedProductMaKh = "";
-
     let currentPage = 1;
     let pageSize = 100;
     let totalRows = 0;
@@ -1657,14 +1656,12 @@
     let zaloAttachmentPreviewUrl = "";
 
     const CHATWOOT_FETCH_INFO_EVENT = "chatwoot-dashboard-app:fetch-info";
-
     const loginPopup = document.getElementById("loginPopup");
     const popupMaNvInput = document.getElementById("popupMaNvInput");
     const popupMatKhauInput = document.getElementById("popupMatKhauInput");
     const popupLoginBtn = document.getElementById("popupLoginBtn");
     const popupLoginMessage = document.getElementById("popupLoginMessage");
     const popupCfgNote = document.getElementById("popupCfgNote");
-
     const userInfo = document.getElementById("userInfo");
     const logoutBtn = document.getElementById("logoutBtn");
     const searchInput = document.getElementById("searchInput");
@@ -1673,7 +1670,6 @@
     const columnToggleBtn = document.getElementById("columnToggleBtn");
     const columnToggleMenu = document.getElementById("columnToggleMenu");
     const customerBody = document.getElementById("customerBody");
-
     const firstPageBtn = document.getElementById("firstPageBtn");
     const prevPageBtn = document.getElementById("prevPageBtn");
     const nextPageBtn = document.getElementById("nextPageBtn");
@@ -1681,10 +1677,8 @@
     const pageInput = document.getElementById("pageInput");
     const pageSizeSelect = document.getElementById("pageSizeSelect");
     const pageInfo = document.getElementById("pageInfo");
-
     const staffDropdownBtn = document.getElementById("staffDropdownBtn");
     const staffDropdownMenu = document.getElementById("staffDropdownMenu");
-
     const floatingSaveBar = document.getElementById("floatingSaveBar");
     const changedCountText = document.getElementById("changedCountText");
     const saveMessage = document.getElementById("saveMessage");
@@ -1707,12 +1701,8 @@
     const confirmAssignCancelBtn = document.getElementById("confirmAssignCancelBtn");
     const confirmAssignOkBtn = document.getElementById("confirmAssignOkBtn");
 
-    function getStaffOptions() {
-      return document.querySelectorAll(".staff-option");
-    }
-
+    function getStaffOptions() { return document.querySelectorAll(".staff-option"); }
     window.addEventListener("message", handleChatwootMessage);
-
     initSupabase().then(function () {
       requestChatwootContext();
       setTimeout(requestChatwootContext, 500);
@@ -1722,9 +1712,9 @@
       initColumnVisibility();
     });
 
-    // ... (toàn bộ các hàm helper giữ nguyên như file gốc) ...
+    // ... (toàn bộ các hàm helper giữ nguyên y như file gốc, tôi rút gọn ở đây để bạn dễ copy, nhưng bạn giữ nguyên) ...
 
-    // ==== SỬA 1: loadCustomersFromSupabase ====
+    // ===== SỬA 1: loadCustomersFromSupabase =====
     async function loadCustomersFromSupabase(page = 1) {
       if (isLoadingCustomers) return;
       if (!supabaseClient) {
@@ -1754,7 +1744,7 @@
         const safeKeyword = keyword.replaceAll("%", "\\%").replaceAll(",", " ");
         query = query.or(`ma_kh.ilike.%${safeKeyword}%,ten_kh.ilike.%${safeKeyword}%,dien_thoai.ilike.%${safeKeyword}%`);
       }
-      query = query.range(from, to);
+      query = query.range(from, to); // <-- .range để cuối
 
       const { data, error, count } = await query;
       if (error) {
@@ -1767,22 +1757,24 @@
         return;
       }
       totalRows = count || 0;
-      customers = (data || []).map(item => ({
-        ma_kh: item.ma_kh || "",
-        ten_kh: item.ten_kh || "",
-        sdt: item.dien_thoai || "",
-        cong_no: item.congno || 0,
-        ma_nv: normalizeNullableMaNv(item.ma_nv),
-        ngay_chat_cuoi: item.ngay_chat_cuoi || null,
-        conversation_id: item.conversation_id || null,
-        contact_id: item.contact_id || null
-      }));
-      await loadCustomerStaffAssignments(customers.map(item => item.ma_kh));
+      customers = (data || []).map(function (item) {
+        return {
+          ma_kh: item.ma_kh || "",
+          ten_kh: item.ten_kh || "",
+          sdt: item.dien_thoai || "",
+          cong_no: item.congno || 0,
+          ma_nv: normalizeNullableMaNv(item.ma_nv),
+          ngay_chat_cuoi: item.ngay_chat_cuoi || null,
+          conversation_id: item.conversation_id || null,
+          contact_id: item.contact_id || null
+        };
+      });
+      await loadCustomerStaffAssignments(customers.map(function (item) { return item.ma_kh; }));
       renderCustomers();
       setCustomerLoading(false);
     }
 
-    // ==== SỬA 2: bindStaffOptionEvents ====
+    // ===== SỬA 2: bindStaffOptionEvents =====
     function bindStaffOptionEvents() {
       getStaffOptions().forEach(function (option) {
         option.addEventListener("change", function () {
@@ -1793,7 +1785,7 @@
       });
     }
 
-    // ... (toàn bộ các hàm còn lại giữ nguyên như file gốc) ...
+    // ... (phần còn lại giữ nguyên 100% như file gốc bạn gửi) ...
 </script>
 </body>
 </html>
