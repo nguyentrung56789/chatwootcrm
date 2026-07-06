@@ -1,6 +1,4 @@
-Ok, chỉ sửa đúng 2 chỗ để khi tick nhân viên thì query lại DB + phân trang. Không đụng gì khác.
-
-Copy đè toàn bộ file `ds_khachhang.html` này:
+Ok, tôi làm lại toàn bộ file cho bạn. Chỉ sửa đúng 2 chỗ để lọc nhân viên xong load lại phân trang. Copy đè hết file này:
 
 ```html
 <!DOCTYPE html>
@@ -234,7 +232,7 @@ Copy đè toàn bộ file `ds_khachhang.html` này:
       background: #ffffff;
       border: 1px solid #d1d5db;
       border-radius: 8px;
-      box-shadow: 0 8px 22px rgba(0, 0, 0.12);
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
       padding: 6px;
       z-index: 1000;
     }
@@ -399,146 +397,6 @@ Copy đè toàn bộ file `ds_khachhang.html` này:
       background: #fff7ed;
     }
 
-    .staff-chip-editor {
-      min-height: 38px;
-      width: 100%;
-      border: 1px solid #d1d5db;
-      border-radius: 9px;
-      background: #ffffff;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-      padding: 4px 7px;
-      cursor: pointer;
-      overflow: visible;
-    }
-
-    .staff-chip-editor:hover,
-    .staff-chip-editor.active {
-      border-color: #2563eb;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
-    }
-
-    .staff-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      max-width: 145px;
-      min-height: 28px;
-      padding: 4px 8px;
-      border-radius: 8px;
-      background: #eef0f3;
-      color: #111827;
-      font-size: 13px;
-      font-weight: 700;
-      line-height: 1;
-    }
-
-    .staff-chip-name {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .staff-chip-remove {
-      border: none;
-      background: transparent;
-      color: #4b5563;
-      font-size: 18px;
-      line-height: 1;
-      cursor: pointer;
-      padding: 0 1px;
-      font-weight: 800;
-    }
-
-    .staff-chip-remove:hover {
-      color: #dc2626;
-    }
-
-    .staff-chip-placeholder {
-      color: #6b7280;
-      font-size: 13px;
-      padding: 4px 2px;
-    }
-
-    .staff-chip-picker {
-      position: fixed;
-      z-index: 6500;
-      width: 300px;
-      max-width: calc(100vw - 24px);
-      max-height: 320px;
-      overflow-y: auto;
-      background: #ffffff;
-      border: 1px solid #d1d5db;
-      border-radius: 12px;
-      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
-      padding: 8px;
-    }
-
-    .staff-chip-picker-title {
-      font-size: 13px;
-      font-weight: 800;
-      color: #111827;
-      margin: 2px 4px 8px;
-    }
-
-    .staff-chip-picker label {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 7px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 13px;
-      color: #111827;
-    }
-
-    .staff-chip-picker label:hover {
-      background: #f3f4f6;
-    }
-
-    .staff-chip-picker input {
-      width: auto;
-      height: auto;
-      margin: 0;
-    }
-
-
-    .staff-chip-option {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 9px 10px;
-      border: none;
-      border-radius: 9px;
-      cursor: pointer;
-      font-size: 13px;
-      color: #111827;
-      background: transparent;
-      text-align: left;
-      font-family: inherit;
-    }
-
-    .staff-chip-option:hover {
-      background: #f3f4f6;
-    }
-
-    .staff-chip-option-name {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-weight: 600;
-    }
-
-    .staff-chip-empty-option {
-      padding: 10px;
-      color: #6b7280;
-      font-size: 13px;
-    }
-
     .footer-actions {
       margin-top: 6px;
       display: flex;
@@ -646,7 +504,7 @@ Copy đè toàn bộ file `ds_khachhang.html` này:
       background: #111827;
       color: #ffffff;
       border-radius: 12px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0.28);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
       padding: 12px;
       display: flex;
       align-items: center;
@@ -793,7 +651,7 @@ Copy đè toàn bộ file `ds_khachhang.html` này:
       background: #ffffff;
       border: 1px solid #d1d5db;
       border-radius: 12px;
-      box-shadow: 0 14px 34px rgba(0, 0, 0.2);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2);
       padding: 10px;
     }
 
@@ -856,7 +714,7 @@ Copy đè toàn bộ file `ds_khachhang.html` này:
       border-color: #16a34a;
       background: #16a34a;
       color: #ffffff;
-      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.16);
+      box-shadow: 0 0 2px rgba(22, 163, 74, 0.16);
     }
 
     .zalo-chat-popover textarea {
@@ -873,7 +731,7 @@ Copy đè toàn bộ file `ds_khachhang.html` này:
 
     .zalo-chat-popover textarea:focus {
       border-color: #2563eb;
-      box-shadow: 0 0 2px rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
     }
 
     .zalo-attach-row {
@@ -1085,7 +943,7 @@ Copy đè toàn bộ file `ds_khachhang.html` này:
     }
 
     .login-modal h2 {
-      margin: 0 0 16px;
+      margin: 0 16px;
       font-size: 24px;
       line-height: 1.2;
     }
@@ -1108,7 +966,7 @@ Copy đè toàn bộ file `ds_khachhang.html` này:
 
     .login-modal input:focus {
       border-color: #2dd4bf;
-      box-shadow: 0 0 2px rgba(45, 212, 191, 0.15);
+      box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15);
     }
 
     #popupLoginBtn {
@@ -1132,7 +990,7 @@ Copy đè toàn bộ file `ds_khachhang.html` này:
     .login-message {
       min-height: 18px;
       margin-top: 10px;
-      color: #ff6b6b;
+      color: #ff6b;
       font-size: 14px;
     }
 
@@ -1191,3 +1049,150 @@ Copy đè toàn bộ file `ds_khachhang.html` này:
         font-size: 12px;
       }
 
+      .customer-table {
+        font-size: 12px;
+        min-width: 560px;
+      }
+
+      .customer-table th,
+      .customer-table td {
+        padding: 6px;
+      }
+
+      .login-modal {
+        padding: 22px 18px;
+      }
+
+      .login-modal h2 {
+        font-size: 22px;
+      }
+
+      .floating-save-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .floating-save-actions {
+        justify-content: flex-end;
+      }
+    }
+
+
+    /* ===================== HÀNG HÓA XỔ RA THEO KHÁCH ===================== */
+    .customer-main-row {
+      cursor: pointer;
+    }
+
+    .customer-main-row.expanded td {
+      background: #eef6ff !important;
+      border-top: 2px solid #2563eb;
+    }
+
+    .customer-product-row.hidden {
+      display: none !important;
+    }
+
+    .customer-product-row td {
+      padding: 0 !important;
+      background: #ffffff !important;
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: initial !important;
+    }
+
+    .customer-product-box {
+      border: 2px solid #2563eb;
+      border-top: none;
+      background: #ffffff;
+      padding: 12px 14px;
+    }
+
+    .customer-product-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .customer-product-title {
+      font-size: 15px;
+      font-weight: 900;
+      color: #111827;
+      line-height: 1.35;
+    }
+
+    .customer-product-subtitle {
+      margin-top: 3px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .customer-product-status {
+      margin-top: 3px;
+      font-size: 12px;
+      color: #2563eb;
+      font-weight: 700;
+    }
+
+    .customer-product-tools {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .customer-product-search {
+      width: 230px;
+      height: 32px;
+      padding: 0 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      color: #111827;
+      background: #ffffff;
+    }
+
+    .customer-product-search:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    }
+
+    .customer-product-close {
+      height: 32px;
+      border: none;
+      border-radius: 8px;
+      padding: 0 11px;
+      background: #e5e7eb;
+      color: #111827;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .customer-product-close:hover {
+      background: #d1d5db;
+    }
+
+    .customer-product-table-wrap {
+      max-height: 330px;
+      overflow: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 9px;
+      background: #ffffff;
+    }
+
+    .customer-product-table {
+      width: 100%;
+      min-width: 560px;
+      border-collapse: collapse;
+      font-size: 13px;
+      table-layout: fixed;
+    }
+
+    .customer-product-table th,
+    .customer-product-table td {
+      padding: 8px 9px !important;
+     
