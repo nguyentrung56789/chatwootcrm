@@ -3238,7 +3238,7 @@ if (conflictRows.length > 0) {
           maKhText,
           valueToSave,
           {
-            table: TABLE_KHACH_HANG,
+            table: TABLE_KHACH_HANG_NHANVIEN,
             source: "kv_khachhang_ma_nv_select",
             mode: "single_staff_kv_khachhang_only",
             id_nv: staff ? normalizeKiotStaffId(staff.id_nv) : valueToSave,
@@ -3259,7 +3259,7 @@ if (conflictRows.length > 0) {
           1800
         );
       } catch (error) {
-        console.error("Lỗi lưu ma_nv vào kv_khachhang:", error);
+        console.error("Lỗi lưu ma_nv vào kv_khachhang_nhanvien:", error);
         showNotice("Lỗi lưu nhân viên: " + (error.message || JSON.stringify(error)), "error", 4500);
         if (found) {
           updateCustomerStaffEditorUI(maKhText);
