@@ -12,6 +12,7 @@
   <script src="./js/auth_token.js"></script>
 
   <style>
+    /* ... giữ nguyên toàn bộ CSS của bạn ... */
     * {
       box-sizing: border-box;
     }
@@ -1248,52 +1249,3 @@
 
               <th class="sortable resizable" data-col="conversation_id" data-sort="conversation_id" data-col-index="6">
                 ID hộp thoại <span class="sort-icon"></span>
-                <span class="col-resizer"></span>
-              </th>
-              
-              <th class="resizable" data-col="action" data-col-index="7">
-                Thao tác
-                <span class="col-resizer"></span>
-              </th>
-            </tr>
-          </thead>
-
-          <tbody id="customerBody">
-            <tr>
-              <td colspan="8">Vui lòng đăng nhập để xem dữ liệu.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="footer-actions">
-        <div class="page-actions">
-          <span>Hiển thị</span>
-
-          <select id="pageSizeSelect">
-            <option value="20">20 dòng</option>
-            <option value="50">50 dòng</option>
-            <option value="100" selected>100 dòng</option>
-            <option value="200">200 dòng</option>
-          </select>
-
-          <button id="firstPageBtn" type="button" title="Trang đầu">|‹</button>
-          <button id="prevPageBtn" type="button" title="Trang trước">‹</button>
-
-          <input id="pageInput" type="number" min="1" value="1" />
-
-          <button id="nextPageBtn" type="button" title="Trang sau">›</button>
-          <button id="lastPageBtn" type="button" title="Trang cuối">›|</button>
-
-          <span id="pageInfo">0 - 0 trong 0 khách hàng</span>
-        </div>
-
-        <div class="user-actions">
-          <span id="userInfo">Chưa đăng nhập</span>
-          <button id="logoutBtn">Đăng xuất</button>
-        </div>
-      </div>
-
-      <div id="floatingSaveBar" class="floating-save-bar hidden">
-        <div>
-          <b id="changedCountText">0 thay
