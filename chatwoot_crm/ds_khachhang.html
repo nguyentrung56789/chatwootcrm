@@ -8,104 +8,104 @@
   <style>
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; width: 100%; height: 100%; overflow: hidden; }
-  .hidden { display: none!important; }
-  .app { width: 100%; height: 100vh; padding: 6px; background: #f3f4f6; overflow: hidden; }
-  .content { width: 100%; height: calc(100vh - 12px); background: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; overflow: hidden; }
-  .toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.55fr) auto auto auto; gap: 6px; margin-bottom: 8px; align-items: center; position: relative; z-index: 30; background: #ffffff; flex: 0 0 auto; }
-  .toolbar input { width: 100%; height: 34px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 13px; outline: none; background: #ffffff; color: #111827; }
-  .toolbar input:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
+ .hidden { display: none!important; }
+ .app { width: 100%; height: 100vh; padding: 6px; background: #f3f4f6; overflow: hidden; }
+ .content { width: 100%; height: calc(100vh - 12px); background: #ffffff; padding: 8px; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; flex-direction: column; overflow: hidden; }
+ .toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.55fr) auto auto auto; gap: 6px; margin-bottom: 8px; align-items: center; position: relative; z-index: 30; background: #ffffff; flex: 0 0 auto; }
+ .toolbar input { width: 100%; height: 34px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 13px; outline: none; background: #ffffff; color: #111827; }
+ .toolbar input:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
     #searchBtn { height: 34px; min-width: 78px; border: none; background: #2563eb; color: #ffffff; padding: 0 12px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
     #searchBtn:hover { background: #1d4ed8; }
     #searchBtn.loading { opacity: 0.65; pointer-events: none; }
     #refreshBtn { height: 34px; min-width: 92px; border: none; background: #10b981; color: #ffffff; padding: 0 12px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
     #refreshBtn:hover { background: #059669; }
     #refreshBtn.loading, #refreshBtn:disabled { opacity: 0.65; pointer-events: none; cursor: not-allowed; }
-  .column-dropdown { position: relative; }
+ .column-dropdown { position: relative; }
     #columnToggleBtn { height: 34px; min-width: 82px; border: none; background: #374151; color: #ffffff; padding: 0 12px; border-radius: 7px; cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; }
     #columnToggleBtn:hover { background: #1f2937; }
-  .column-dropdown-menu { position: absolute; top: 38px; right: 0; width: 220px; max-height: 300px; overflow-y: auto; background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16); padding: 8px; z-index: 1200; }
-  .column-dropdown-menu label { display: flex; align-items: center; gap: 8px; padding: 7px 6px; border-radius: 7px; cursor: pointer; font-size: 13px; color: #111827; }
-  .column-dropdown-menu label:hover { background: #f3f4f6; }
-  .column-dropdown-menu input { width: auto; height: auto; margin: 0; }
-  .customer-table col.col-hidden,.customer-table th.col-hidden,.customer-table td.col-hidden { display: none!important; }
-  .staff-dropdown { position: relative; width: 100%; }
+ .column-dropdown-menu { position: absolute; top: 38px; right: 0; width: 220px; max-height: 300px; overflow-y: auto; background: #ffffff; border: 1px solid #d1d5db; border-radius: 10px; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16); padding: 8px; z-index: 1200; }
+ .column-dropdown-menu label { display: flex; align-items: center; gap: 8px; padding: 7px 6px; border-radius: 7px; cursor: pointer; font-size: 13px; color: #111827; }
+ .column-dropdown-menu label:hover { background: #f3f4f6; }
+ .column-dropdown-menu input { width: auto; height: auto; margin: 0; }
+ .customer-table col.col-hidden,.customer-table th.col-hidden,.customer-table td.col-hidden { display: none!important; }
+ .staff-dropdown { position: relative; width: 100%; }
     #staffDropdownBtn { width: 100%; height: 34px; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 7px; background: #ffffff; text-align: left; cursor: pointer; font-size: 13px; color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #staffDropdownBtn:hover { border-color: #2563eb; }
-  .staff-dropdown-menu { position: absolute; top: 38px; left: 0; width: 100%; min-width: 170px; max-height: 230px; overflow-y: auto; background: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12); padding: 6px; z-index: 1000; }
-  .staff-dropdown-menu label { display: flex; align-items: center; gap: 6px; padding: 6px; cursor: pointer; font-size: 13px; color: #111827; border-radius: 6px; }
-  .staff-dropdown-menu label:hover { background: #f3f4f6; }
-  .staff-dropdown-menu input { width: auto; height: auto; margin: 0; }
-  .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; border-top: 1px solid #f3f4f6; }
-  .customer-table { width: max-content; min-width: 720px; border-collapse: collapse; font-size: 13px; table-layout: fixed; margin-top: 0; }
-  .customer-table th,.customer-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: left; white-space: nowrap; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
-  .customer-table th { background: #f9fafb; font-weight: 700; color: #111827; position: sticky; top: 0; z-index: 20; }
-  .customer-table tr:hover td { background: #f9fafb; }
-  .customer-table th.sortable { cursor: pointer; user-select: none; }
-  .customer-table th.sortable:hover { background: #eef2ff; }
-  .sort-icon { margin-left: 4px; font-size: 11px; color: #2563eb; }
-  .customer-table button { border: none; background: #2563eb; color: #ffffff; padding: 5px 9px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; }
-  .customer-table button:hover { background: #1d4ed8; }
-  .customer-table tbody { transition: opacity 0.12s ease; }
-  .customer-table tbody.loading { opacity: 0.45; pointer-events: none; }
-  .customer-table th.resizable { position: sticky; top: 0; }
-  .col-resizer { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize; user-select: none; touch-action: none; z-index: 30; }
-  .col-resizer::after { content: ""; position: absolute; top: 20%; bottom: 20%; left: 3px; width: 1px; background: transparent; }
-  .col-resizer:hover::after,.col-resizer.active::after { background: #2563eb; }
+ .staff-dropdown-menu { position: absolute; top: 38px; left: 0; width: 100%; min-width: 170px; max-height: 230px; overflow-y: auto; background: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 8px 22px rgba(0, 0, 0.12); padding: 6px; z-index: 1000; }
+ .staff-dropdown-menu label { display: flex; align-items: center; gap: 6px; padding: 6px; cursor: pointer; font-size: 13px; color: #111827; border-radius: 6px; }
+ .staff-dropdown-menu label:hover { background: #f3f4f6; }
+ .staff-dropdown-menu input { width: auto; height: auto; margin: 0; }
+ .table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; border-top: 1px solid #f3f4f6; }
+ .customer-table { width: max-content; min-width: 720px; border-collapse: collapse; font-size: 13px; table-layout: fixed; margin-top: 0; }
+ .customer-table th,.customer-table td { padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: left; white-space: nowrap; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
+ .customer-table th { background: #f9fafb; font-weight: 700; color: #111827; position: sticky; top: 0; z-index: 20; }
+ .customer-table tr:hover td { background: #f9fafb; }
+ .customer-table th.sortable { cursor: pointer; user-select: none; }
+ .customer-table th.sortable:hover { background: #eef2ff; }
+ .sort-icon { margin-left: 4px; font-size: 11px; color: #2563eb; }
+ .customer-table button { border: none; background: #2563eb; color: #ffffff; padding: 5px 9px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; }
+ .customer-table button:hover { background: #1d4ed8; }
+ .customer-table tbody { transition: opacity 0.12s ease; }
+ .customer-table tbody.loading { opacity: 0.45; pointer-events: none; }
+ .customer-table th.resizable { position: sticky; top: 0; }
+ .col-resizer { position: absolute; top: 0; right: 0; width: 7px; height: 100%; cursor: col-resize; user-select: none; touch-action: none; z-index: 30; }
+ .col-resizer::after { content: ""; position: absolute; top: 20%; bottom: 20%; left: 3px; width: 1px; background: transparent; }
+ .col-resizer:hover::after,.col-resizer.active::after { background: #2563eb; }
     body.resizing-column { cursor: col-resize; user-select: none; }
-  .staff-cell-select { width: 100%; height: 34px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; color: #111827; font-size: 13px; padding: 0 6px; cursor: pointer; }
-  .staff-cell-select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
-  .footer-actions { margin-top: 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; color: #6b7280; flex-wrap: wrap; background: #ffffff; padding-top: 6px; padding-bottom: 2px; flex: 0 0 auto; }
-  .page-actions,.user-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+ .staff-cell-select { width: 100%; height: 34px; border: 1px solid #d1d5db; border-radius: 6px; background: #ffffff; color: #111827; font-size: 13px; padding: 0 6px; cursor: pointer; }
+ .staff-cell-select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
+ .footer-actions { margin-top: 6px; display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 11px; color: #6b7280; flex-wrap: wrap; background: #ffffff; padding-top: 6px; padding-bottom: 2px; flex: 0 0 auto; }
+ .page-actions,.user-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
     #pageSizeSelect { height: 28px; border: 1px solid #d1d5db; background: #ffffff; border-radius: 6px; padding: 0 8px; font-size: 12px; color: #111827; }
-  .page-actions button { min-width: 28px; height: 28px; border: none; background: transparent; color: #374151; border-radius: 6px; font-size: 14px; cursor: pointer; }
-  .page-actions button:hover { background: #f3f4f6; }
-  .page-actions button:disabled { color: #cbd5e1; cursor: not-allowed; background: transparent; }
+ .page-actions button { min-width: 28px; height: 28px; border: none; background: transparent; color: #374151; border-radius: 6px; font-size: 14px; cursor: pointer; }
+ .page-actions button:hover { background: #f3f4f6; }
+ .page-actions button:disabled { color: #cbd5e1; cursor: not-allowed; background: transparent; }
     #pageInput { width: 48px; height: 28px; border: 1px solid #d1d5db; border-radius: 8px; text-align: center; font-size: 12px; outline: none; }
     #pageInput:focus { border-color: #2563eb; }
     #pageInfo { color: #374151; font-size: 12px; white-space: nowrap; min-width: 165px; }
     #userInfo { max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #logoutBtn { border: none; background: #ef4444; color: #ffffff; padding: 5px 8px; border-radius: 5px; font-size: 11px; cursor: pointer; white-space: nowrap; }
     #logoutBtn:hover { background: #dc2626; }
-  .floating-save-bar { position: fixed; right: 18px; bottom: 18px; z-index: 5000; min-width: 320px; max-width: calc(100vw - 36px); background: #111827; color: #ffffff; border-radius: 12px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28); padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .floating-save-bar b { display: block; font-size: 13px; }
+ .floating-save-bar { position: fixed; right: 18px; bottom: 18px; z-index: 5000; min-width: 320px; max-width: calc(100vw - 36px); background: #111827; color: #ffffff; border-radius: 12px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28); padding: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+ .floating-save-bar b { display: block; font-size: 13px; }
     #saveMessage { display: block; margin-top: 2px; font-size: 12px; color: #cbd5e1; }
-  .floating-save-actions { display: flex; align-items: center; gap: 8px; }
-  .floating-save-actions button { border: none; border-radius: 8px; padding: 8px 11px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+ .floating-save-actions { display: flex; align-items: center; gap: 8px; }
+ .floating-save-actions button { border: none; border-radius: 8px; padding: 8px 11px; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
     #saveStaffBtn { background: #22c55e; color: #ffffff; }
     #saveStaffBtn:hover { background: #16a34a; }
-  .row-actions { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
-  .customer-table button.assign-btn { background: #2563eb; }
-  .customer-table button.assign-btn:hover { background: #1d4ed8; }
-  .customer-table button.zalo-chat-btn { background: #16a34a; }
-  .customer-table button.zalo-chat-btn:hover { background: #15803d; }
-  .customer-table button:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.15); }
-  .notice-box { position: fixed; right: 18px; bottom: 82px; z-index: 5001; width: 360px; max-width: calc(100vw - 36px); min-height: 70px; background: #ffffff; border: 1px solid #d1d5db; border-radius: 12px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18); padding: 12px; color: #111827; font-size: 13px; }
-  .login-popup { position: fixed; inset: 0; background: rgba(7, 16, 37, 0.72); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .login-modal { width: min(380px, 92vw); background: #0f1830; color: #e6edff; border-radius: 16px; padding: 26px 22px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); text-align: center; }
-  .login-modal h2 { margin: 0 0 16px; font-size: 24px; line-height: 1.2; }
-  .login-modal input,.login-modal button { width: 100%; padding: 11px 12px; border-radius: 10px; font-size: 15px; }
-  .login-modal input { margin: 6px 0; border: 1px solid #233043; background: #071526; color: #e6edff; outline: none; }
-  .login-modal input:focus { border-color: #2dd4bf; box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15); }
+ .row-actions { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+ .customer-table button.assign-btn { background: #2563eb; }
+ .customer-table button.assign-btn:hover { background: #1d4ed8; }
+ .customer-table button.zalo-chat-btn { background: #16a34a; }
+ .customer-table button.zalo-chat-btn:hover { background: #15803d; }
+ .customer-table button:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.15); }
+ .notice-box { position: fixed; right: 18px; bottom: 82px; z-index: 5001; width: 360px; max-width: calc(100vw - 36px); min-height: 70px; background: #ffffff; border: 1px solid #d1d5db; border-radius: 12px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18); padding: 12px; color: #111827; font-size: 13px; }
+ .login-popup { position: fixed; inset: 0; background: rgba(7, 16, 37, 0.72); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 16px; }
+ .login-modal { width: min(380px, 92vw); background: #0f1830; color: #e6edff; border-radius: 16px; padding: 26px 22px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.35); text-align: center; }
+ .login-modal h2 { margin: 0 0 16px; font-size: 24px; line-height: 1.2; }
+ .login-modal input,.login-modal button { width: 100%; padding: 11px 12px; border-radius: 10px; font-size: 15px; }
+ .login-modal input { margin: 6px 0; border: 1px solid #233043; background: #071526; color: #e6edff; outline: none; }
+ .login-modal input:focus { border-color: #2dd4bf; box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15); }
     #popupLoginBtn { margin-top: 10px; border: 0; background: #2dd4bf; color: #042023; font-weight: 700; cursor: pointer; }
     #popupLoginBtn:hover { background: #5eead4; }
     #popupLoginBtn:disabled { opacity: 0.6; cursor: not-allowed; }
-  .login-message { min-height: 18px; margin-top: 10px; color: #ff6b6b; font-size: 14px; }
-  .login-note { margin-top: 8px; color: #9aa7c7; font-size: 12px; }
-  .zalo-chat-popover { position: fixed; z-index: 6000; width: 320px; max-width: calc(100vw - 24px); background: #ffffff; border: 1px solid #d1d5db; border-radius: 12px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2); padding: 10px; }
-  .zalo-chat-title { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 8px; }
-  .zalo-sender-info { margin-bottom: 8px; padding: 7px 8px; border-radius: 8px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 13px; font-weight: 700; }
-  .zalo-chat-popover textarea { width: 100%; min-height: 82px; resize: vertical; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px; font-family: Arial, sans-serif; font-size: 13px; outline: none; }
-  .zalo-chat-popover textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12); }
-  .zalo-chat-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-  .zalo-chat-actions button { border: none; border-radius: 7px; padding: 7px 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
-  .zalo-chat-send { background: #16a34a; color: #ffffff; }
-  .zalo-chat-close { background: #e5e7eb; color: #111827; }
-  .confirm-assign-modal { position: fixed; inset: 0; z-index: 7000; background: rgba(15, 23, 42, 0.48); display: flex; align-items: center; justify-content: center; padding: 16px; }
-  .confirm-assign-box { width: min(440px, 92vw); background: #ffffff; border-radius: 14px; border: 1px solid #e5e7eb; box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28); padding: 18px; color: #111827; }
-  .confirm-assign-title { font-weight: 800; font-size: 16px; margin-bottom: 10px; }
-  .confirm-assign-message { font-size: 14px; line-height: 1.55; color: #374151; }
-  .confirm-assign-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-  .confirm-assign-actions button { border: none; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
+ .login-message { min-height: 18px; margin-top: 10px; color: #ff6b6b; font-size: 14px; }
+ .login-note { margin-top: 8px; color: #9aa7c7; font-size: 12px; }
+ .zalo-chat-popover { position: fixed; z-index: 6000; width: 320px; max-width: calc(100vw - 24px); background: #ffffff; border: 1px solid #d1d5db; border-radius: 12px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.2); padding: 10px; }
+ .zalo-chat-title { font-size: 13px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+ .zalo-sender-info { margin-bottom: 8px; padding: 7px 8px; border-radius: 8px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; font-size: 13px; font-weight: 700; }
+ .zalo-chat-popover textarea { width: 100%; min-height: 82px; resize: vertical; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px; font-family: Arial, sans-serif; font-size: 13px; outline: none; }
+ .zalo-chat-popover textarea:focus { border-color: #2563eb; box-shadow: 0 0 2px rgba(37, 99, 235, 0.12); }
+ .zalo-chat-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+ .zalo-chat-actions button { border: none; border-radius: 7px; padding: 7px 10px; font-size: 13px; font-weight: 700; cursor: pointer; }
+ .zalo-chat-send { background: #16a34a; color: #ffffff; }
+ .zalo-chat-close { background: #e5e7eb; color: #111827; }
+ .confirm-assign-modal { position: fixed; inset: 0; z-index: 7000; background: rgba(15, 23, 42, 0.48); display: flex; align-items: center; justify-content: center; padding: 16px; }
+ .confirm-assign-box { width: min(440px, 92vw); background: #ffffff; border-radius: 14px; border: 1px solid #e5e7eb; box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28); padding: 18px; color: #111827; }
+ .confirm-assign-title { font-weight: 800; font-size: 16px; margin-bottom: 10px; }
+ .confirm-assign-message { font-size: 14px; line-height: 1.55; color: #374151; }
+ .confirm-assign-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+ .confirm-assign-actions button { border: none; border-radius: 8px; padding: 8px 12px; font-size: 13px; font-weight: 700; cursor: pointer; }
     #confirmAssignCancelBtn { background: #e5e7eb; color: #111827; }
     #confirmAssignOkBtn { background: #2563eb; color: #ffffff; }
     #confirmAssignOkBtn:disabled { opacity: 0.65; cursor: not-allowed; }
@@ -146,8 +146,8 @@
           <colgroup>
             <col data-col="ma_kh" style="width: 130px;">
             <col data-col="ten_kh" style="width: 240px;">
-            <col data-col="dien_thoai" style="width: 150px;">
-            <col data-col="congno" style="width: 130px;">
+            <col data-col="sdt" style="width: 150px;">
+            <col data-col="cong_no" style="width: 130px;">
             <col data-col="ma_nv" style="width: 160px;">
             <col data-col="ngay_chat_cuoi" style="width: 160px;">
             <col data-col="conversation_id" style="width: 130px;">
@@ -157,10 +157,10 @@
             <tr>
               <th class="sortable resizable" data-col="ma_kh" data-sort="ma_kh" data-col-index="0">Mã KH <span class="sort-icon"></span><span class="col-resizer"></span></th>
               <th class="sortable resizable" data-col="ten_kh" data-sort="ten_kh" data-col-index="1">Tên khách hàng <span class="sort-icon"></span><span class="col-resizer"></span></th>
-              <th class="sortable resizable" data-col="dien_thoai" data-sort="dien_thoai" data-col-index="2">Số điện thoại <span class="sort-icon"></span><span class="col-resizer"></span></th>
-              <th class="sortable resizable" data-col="congno" data-sort="congno" data-col-index="3">Công nợ <span class="sort-icon"></span><span class="col-resizer"></span></th>
+              <th class="sortable resizable" data-col="sdt" data-sort="sdt" data-col-index="2">Số điện thoại <span class="sort-icon"></span><span class="col-resizer"></span></th>
+              <th class="sortable resizable" data-col="cong_no" data-sort="cong_no" data-col-index="3">Công nợ <span class="sort-icon"></span><span class="col-resizer"></span></th>
               <th class="sortable resizable" data-col="ma_nv" data-sort="ma_nv" data-col-index="4">Nhân viên <span class="sort-icon"></span><span class="col-resizer"></span></th>
-              <th class="sortable resizable" data-col="ngay_chat_cuoi" data-sort="ngay_chat_cuoi" data-col-index="5">Ngày chat cuối <span class="sort-icon"></span><span class="col-resizer"></span></th>
+              <th class="sortable resizable" data-col="ngay_chat_cuoi" data-sort="ngay_chat_cuoi" data-col-index="5">Ngày <span class="sort-icon"></span><span class="col-resizer"></span></th>
               <th class="sortable resizable" data-col="conversation_id" data-sort="conversation_id" data-col-index="6">ID hộp thoại <span class="sort-icon"></span><span class="col-resizer"></span></th>
               <th class="resizable" data-col="action" data-col-index="7">Thao tác<span class="col-resizer"></span></th>
             </tr>
@@ -231,7 +231,7 @@
   <script>
     const LOGIN_STORAGE_KEY = "chatwoot_crm_user";
     const TABLE_NHAN_VIEN = "kv_nhan_vien";
-    const TABLE_KHACH_HANG = "sql_khachhang_nhanvien"; // ĐÃ ĐỔI SANG VIEW
+    const TABLE_KHACH_HANG = "sql_khachhang_nhanvien"; // ĐỔI TỪ kv_khachhang SANG VIEW
     const UPDATE_CHATWOOT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
     const ZALO_CHAT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/my-zalo-chatwoot";
 
@@ -240,10 +240,10 @@
     const CUSTOMER_TABLE_COLUMNS = [
       { key: "ma_kh", label: "Mã KH", required: true },
       { key: "ten_kh", label: "Tên khách hàng", required: true },
-      { key: "dien_thoai", label: "Số điện thoại" },
-      { key: "congno", label: "Công nợ" },
+      { key: "sdt", label: "Số điện thoại" },
+      { key: "cong_no", label: "Công nợ" },
       { key: "ma_nv", label: "Nhân viên" },
-      { key: "ngay_chat_cuoi", label: "Ngày chat cuối" },
+      { key: "ngay_chat_cuoi", label: "Ngày" },
       { key: "conversation_id", label: "ID hộp thoại" },
       { key: "action", label: "Thao tác", required: true }
     ];
@@ -267,6 +267,8 @@
     let chatwootContextReadyResolvers = [];
     let currentZaloChatRow = null;
     let pendingConfirmAssign = null;
+
+    const CHATWOOT_FETCH_INFO_EVENT = "chatwoot-dashboard-app:fetch-info";
 
     const loginPopup = document.getElementById("loginPopup");
     const popupMaNvInput = document.getElementById("popupMaNvInput");
@@ -368,4 +370,8 @@
       if (payload.event === "appContext") return payload.data || null;
       if (payload.data && payload.data.event === "appContext") return payload.data.data || null;
       if (payload.conversation && typeof payload.conversation === "object") return payload;
-      if (
+      if (payload.data && payload.data.conversation && typeof payload.data.conversation === "object") return payload.data;
+      return null;
+    }
+
+    function resolveWaitingChat
