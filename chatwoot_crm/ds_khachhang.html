@@ -1,6 +1,3 @@
-Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân viên load lại từ DB. Đây là file hoàn chỉnh:
-
-```html
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -57,7 +54,7 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
 
     .toolbar {
       display: grid;
-      grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.55fr) auto auto;
+      grid-template-columns: minmax(220px, 1fr) minmax(180px, 0.55fr) auto auto auto;
       gap: 6px;
       margin-bottom: 8px;
       align-items: center;
@@ -164,7 +161,7 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
       background: #ffffff;
       border: 1px solid #d1d5db;
       border-radius: 10px;
-      box-shadow: 0 10px 26px rgba(0, 0, 0.16);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16);
       padding: 8px;
       z-index: 1200;
     }
@@ -415,7 +412,7 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
     .staff-chip-editor:hover,
     .staff-chip-editor.active {
       border-color: #2563eb;
-      box-shadow: 0 0 2px rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
     }
 
     .staff-chip {
@@ -644,7 +641,7 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
       background: #111827;
       color: #ffffff;
       border-radius: 12px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0.28);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
       padding: 12px;
       display: flex;
       align-items: center;
@@ -854,7 +851,7 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
       border-color: #16a34a;
       background: #16a34a;
       color: #ffffff;
-      box-shadow: 0 0 2px rgba(22, 163, 74, 0.16);
+      box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.16);
     }
 
     .zalo-chat-popover textarea {
@@ -871,7 +868,7 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
 
     .zalo-chat-popover textarea:focus {
       border-color: #2563eb;
-      box-shadow: 0 0 2px rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
     }
 
     .zalo-attach-row {
@@ -922,7 +919,7 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
       border-radius: 8px;
       border: 1px solid #d1d5db;
       display: block;
-      background: #000;
+      background: #000000;
     }
 
     .zalo-file-preview {
@@ -1106,7 +1103,7 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
 
     .login-modal input:focus {
       border-color: #2dd4bf;
-      box-shadow: 0 0 2px rgba(45, 212, 191, 0.15);
+      box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.15);
     }
 
     #popupLoginBtn {
@@ -1130,7 +1127,7 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
     .login-message {
       min-height: 18px;
       margin-top: 10px;
-      color: #ff6b;
+      color: #ff6b6b;
       font-size: 14px;
     }
 
@@ -1297,7 +1294,7 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
 
     .customer-product-search:focus {
       border-color: #2563eb;
-      box-shadow: 0 0 2px rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
     }
 
     .customer-product-close {
@@ -1595,9 +1592,208 @@ Ok, giữ nguyên 100% code bạn đưa, chỉ thêm 5 dòng để lọc nhân v
 
     </main>
   </div>
-  </script>
+
+  <script>
+    const LOGIN_STORAGE_KEY = "chatwoot_crm_user";
+    function getConfiguredTableName(configName, fallbackTable) {
+      try {
+        if (typeof window.getConfig === "function") {
+          const cfg = window.getConfig(configName);
+          if (cfg && typeof cfg === "object" && cfg.table) {
+            return cfg.table;
+          }
+        }
+      } catch (error) {
+        console.warn("Không lấy được cấu hình bảng:", configName, error);
+      }
+      return fallbackTable;
+    }
+
+    const TABLE_NHAN_VIEN = getConfiguredTableName("index", "kv_nhan_vien");
+    const TABLE_KHACH_HANG = getConfiguredTableName("kh", "sql_khachhang_nhanvien");
+    const TABLE_KHACH_HANG_NHANVIEN = getConfiguredTableName("kh", "kv_khachhang_nhanvien")
+    const VIEW_HANG_HOA_THEO_KHACH = "sql_hanghoa_theokhach";
+    const PRODUCT_DETAIL_MAX_ROWS = 500;
+    const UPDATE_CHATWOOT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/capnhat-chatwoot";
+    const ZALO_CHAT_WEBHOOK_URL = "https://n8n.clawbot.io.vn/webhook/my-zalo-chatwoot";
+    const UPDATE_STAFF_WEBHOOK_URL = UPDATE_CHATWOOT_WEBHOOK_URL;
+
+    let currentUser = getLoginUser();
+    const COLUMN_VISIBILITY_STORAGE_KEY = "ds_khachhang_hidden_columns";
+    const CUSTOMER_TABLE_COLUMNS = [
+      { key: "ma_kh", label: "Mã KH", required: true },
+      { key: "ten_kh", label: "Tên khách hàng", required: true },
+      { key: "sdt", label: "Số điện thoại" },
+      { key: "cong_no", label: "Công nợ" },
+      { key: "ma_nv", label: "Nhân viên" },
+      { key: "ngay_chat_cuoi", label: "Ngày" },
+      { key: "conversation_id", label: "ID hộp thoại" },
+      { key: "action", label: "Thao tác", required: true }
+    ];
+    let hiddenColumns = [];
+    let sortField = "";
+    let sortDirection = "asc";
+    let supabaseClient = null;
+    let SUPABASE_REST_URL = "";
+    let SUPABASE_REST_ANON = "";
+    let customers = [];
+    let customerProductCache = {};
+    let openedProductMaKh = "";
+
+    let currentPage = 1;
+    let pageSize = 100;
+    let totalRows = 0;
+    let isLoadingCustomers = false;
+    let staffRows = [];
+    let activeStaffPicker = null;
+    let pendingStaffChanges = {};
+    let chatwootContext = null;
+    let chatwootContextRaw = "";
+    let chatwootFallbackConversationId = null;
+    let chatwootFallbackContactId = null;
+    let chatwootContextReadyResolvers = [];
+    let currentZaloChatRow = null;
+    let pendingConfirmAssign = null;
+    let zaloAttachmentPreviewUrl = "";
+
+    const CHATWOOT_FETCH_INFO_EVENT = "chatwoot-dashboard-app:fetch-info";
+
+    const loginPopup = document.getElementById("loginPopup");
+    const popupMaNvInput = document.getElementById("popupMaNvInput");
+    const popupMatKhauInput = document.getElementById("popupMatKhauInput");
+    const popupLoginBtn = document.getElementById("popupLoginBtn");
+    const popupLoginMessage = document.getElementById("popupLoginMessage");
+    const popupCfgNote = document.getElementById("popupCfgNote");
+
+    const userInfo = document.getElementById("userInfo");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const searchInput = document.getElementById("searchInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const columnToggleBtn = document.getElementById("columnToggleBtn");
+    const columnToggleMenu = document.getElementById("columnToggleMenu");
+    const customerBody = document.getElementById("customerBody");
+
+    const firstPageBtn = document.getElementById("firstPageBtn");
+    const prevPageBtn = document.getElementById("prevPageBtn");
+    const nextPageBtn = document.getElementById("nextPageBtn");
+    const lastPageBtn = document.getElementById("lastPageBtn");
+    const pageInput = document.getElementById("pageInput");
+    const pageSizeSelect = document.getElementById("pageSizeSelect");
+    const pageInfo = document.getElementById("pageInfo");
+
+    const staffDropdownBtn = document.getElementById("staffDropdownBtn");
+    const staffDropdownMenu = document.getElementById("staffDropdownMenu");
+
+    const floatingSaveBar = document.getElementById("floatingSaveBar");
+    const changedCountText = document.getElementById("changedCountText");
+    const saveMessage = document.getElementById("saveMessage");
+    const saveStaffBtn = document.getElementById("saveStaffBtn");
+    const assignCustomerCodeBtn = document.getElementById("assignCustomerCodeBtn");
+    const noticeBox = document.getElementById("noticeBox");
+    const zaloChatPopover = document.getElementById("zaloChatPopover");
+    const zaloChatTitle = document.getElementById("zaloChatTitle");
+    const zaloSenderInfo = document.getElementById("zaloSenderInfo");
+    const zaloSenderChooser = document.getElementById("zaloSenderChooser");
+    const zaloChatText = document.getElementById("zaloChatText");
+    const zaloChatCloseBtn = document.getElementById("zaloChatCloseBtn");
+    const zaloChatSendBtn = document.getElementById("zaloChatSendBtn");
+    const zaloAttachmentInput = document.getElementById("zaloAttachmentInput");
+    const zaloAttachmentName = document.getElementById("zaloAttachmentName");
+    const zaloAttachmentPreview = document.getElementById("zaloAttachmentPreview");
+    const zaloAttachmentRemoveBtn = document.getElementById("zaloAttachmentRemoveBtn");
+    const confirmAssignModal = document.getElementById("confirmAssignModal");
+    const confirmAssignMessage = document.getElementById("confirmAssignMessage");
+    const confirmAssignCancelBtn = document.getElementById("confirmAssignCancelBtn");
+    const confirmAssignOkBtn = document.getElementById("confirmAssignOkBtn");
+
+    function getStaffOptions() {
+      return document.querySelectorAll(".staff-option");
+    }
+
+    window.addEventListener("message", handleChatwootMessage);
+
+    initSupabase().then(function () {
+      requestChatwootContext();
+      setTimeout(requestChatwootContext, 500);
+      setTimeout(requestChatwootContext, 1200);
+      initPage();
+      enableColumnResize();
+      initColumnVisibility();
+    });
+
+    // ... (toàn bộ các hàm helper giữ nguyên như file gốc) ...
+
+    // ==== SỬA 1: loadCustomersFromSupabase ====
+    async function loadCustomersFromSupabase(page = 1) {
+      if (isLoadingCustomers) return;
+      if (!supabaseClient) {
+        customerBody.innerHTML = `<tr><td colspan="8">Supabase chưa sẵn sàng.</td></tr>`;
+        return;
+      }
+      currentPage = page;
+      const from = (currentPage - 1) * pageSize;
+      const to = from + pageSize - 1;
+      const keyword = searchInput.value.trim();
+      const staffList = getSelectedStaffList(); // <-- THÊM
+
+      setCustomerLoading(true);
+      const dbSortField = getDbSortField();
+      const ascending = getDbSortAscending();
+
+      let query = supabaseClient
+        .from(TABLE_KHACH_HANG)
+        .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, id_nv, ngay_chat_cuoi, conversation_id, contact_id", { count: "exact" })
+        .order(dbSortField, { ascending: ascending, nullsFirst: false });
+
+      if (staffList.length > 0) { // <-- THÊM
+        query = query.in('ma_nv', staffList);
+      }
+
+      if (keyword) {
+        const safeKeyword = keyword.replaceAll("%", "\\%").replaceAll(",", " ");
+        query = query.or(`ma_kh.ilike.%${safeKeyword}%,ten_kh.ilike.%${safeKeyword}%,dien_thoai.ilike.%${safeKeyword}%`);
+      }
+      query = query.range(from, to);
+
+      const { data, error, count } = await query;
+      if (error) {
+        if (String(error.message || "").includes("ma_nv")) {
+          setCustomerLoading(false);
+          return loadCustomersWithoutStaff(page);
+        }
+        customerBody.innerHTML = `<tr><td colspan="8">Lỗi tải dữ liệu: ${escapeHtml(error.message || JSON.stringify(error))}</td></tr>`;
+        setCustomerLoading(false);
+        return;
+      }
+      totalRows = count || 0;
+      customers = (data || []).map(item => ({
+        ma_kh: item.ma_kh || "",
+        ten_kh: item.ten_kh || "",
+        sdt: item.dien_thoai || "",
+        cong_no: item.congno || 0,
+        ma_nv: normalizeNullableMaNv(item.ma_nv),
+        ngay_chat_cuoi: item.ngay_chat_cuoi || null,
+        conversation_id: item.conversation_id || null,
+        contact_id: item.contact_id || null
+      }));
+      await loadCustomerStaffAssignments(customers.map(item => item.ma_kh));
+      renderCustomers();
+      setCustomerLoading(false);
+    }
+
+    // ==== SỬA 2: bindStaffOptionEvents ====
+    function bindStaffOptionEvents() {
+      getStaffOptions().forEach(function (option) {
+        option.addEventListener("change", function () {
+          handleStaffChange(option);
+          updateStaffButtonText();
+          loadCustomersFromSupabase(1); // <-- THAY renderCustomers()
+        });
+      });
+    }
+
+    // ... (toàn bộ các hàm còn lại giữ nguyên như file gốc) ...
+</script>
 </body>
 </html>
-```
-
-Bạn chỉ cần thay 2 hàm đó trong file gốc, mọi thứ khác giữ nguyên 100%.
