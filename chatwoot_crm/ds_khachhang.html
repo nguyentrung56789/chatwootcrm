@@ -3391,7 +3391,7 @@ if (conflictRows.length > 0) {
 
       let query = supabaseClient
         .from(TABLE_KHACH_HANG)
-        .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, ngay_chat_cuoi, conversation_id, contact_id", { count: "exact" })
+        .select("ma_kh, ten_kh, dien_thoai, congno, ma_nv, id_nv, ngay_chat_cuoi, conversation_id, contact_id", { count: "exact" })
         .order(dbSortField, { ascending: ascending, nullsFirst: false })
         .range(from, to);
 
